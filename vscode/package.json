@@ -1,0 +1,85 @@
+{
+  "name": "dep-lens-vscode",
+  "displayName": "Dep Lens for Go",
+  "description": "在Go的import后显示GitHub的star数和最后更新时间",
+  "version": "0.1.0",
+  "publisher": "deplens",
+  "private": true,
+  "engines": {
+    "vscode": "^1.86.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:go"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "Dep Lens",
+      "properties": {
+        "depLens.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "启用在Go import后的GitHub信息内联提示"
+        },
+        "depLens.cacheTtlMinutes": {
+          "type": "number",
+          "default": 10,
+          "minimum": 1,
+          "maximum": 1440,
+          "description": "GitHub信息缓存的分钟数"
+        },
+        "depLens.githubToken": {
+          "type": "string",
+          "default": "",
+          "description": "GitHub Token（留空则使用匿名调用或环境变量GITHUB_TOKEN）"
+        },
+        "depLens.showLoading": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否在加载期间显示“载入中…”占位提示"
+        },
+        "depLens.labelFormat": {
+          "type": "string",
+          "default": "⭐ {stars} • 更新 {date}",
+          "description": "显示内容格式，支持 {stars} 和 {date}"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "depLens.clearCache",
+        "title": "Dep Lens: 清除缓存"
+      }
+    ],
+    "languages": [
+      {
+        "id": "go",
+        "aliases": ["Go", "golang"]
+      }
+    ]
+  },
+  "scripts": {
+    "build": "tsup src/extension.ts --format cjs --dts --out-dir dist",
+    "watch": "tsup src/extension.ts --format cjs --dts --out-dir dist --watch",
+    "typecheck": "tsc --noEmit",
+    "prepack": "tsup src/extension.ts --format cjs --dts --out-dir dist",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.17",
+    "@types/vscode": "^1.86.0",
+    "tsup": "^8.0.1",
+    "typescript": "^5.4.5",
+    "@vscode/vsce": "^3.0.0"
+  },
+  "dependencies": {
+    "undici": "^6.18.2"
+  },
+  "files": [
+    "dist"
+  ]
+}

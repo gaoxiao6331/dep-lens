@@ -1,0 +1,10 @@
+node_modules/**
+src/**
+tsconfig.json
+.vscode/**
+.github/**
+.tmp/**
+.npmrc
+README.md
+CHANGELOG.md
+**/*.map

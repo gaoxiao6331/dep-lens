@@ -1,0 +1,13 @@
+<idea-plugin>
+  <id>com.deplens.go.depLens</id>
+  <name>Dep Lens for Go</name>
+  <vendor>DepLens</vendor>
+  <description>在Go的import语句后显示GitHub的star数和最后更新时间</description>
+
+  <depends>com.intellij.modules.platform</depends>
+  <depends>com.goide</depends>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <inlayHintsProvider language="go" implementationClass="com.deplens.go.GithubImportInlayProvider"/>
+  </extensions>
+</idea-plugin>

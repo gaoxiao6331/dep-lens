@@ -1,4 +1,6 @@
 import * as vscode from 'vscode'
+import * as fs from 'fs'
+import * as path from 'path'
 import { fetch } from 'undici'
 
 type RepoInfo = { stars: number; updatedDate: string }
@@ -11,6 +13,8 @@ let labelFormat = '⭐ {stars} • 更新 {date}'
 let enabled = true
 let githubToken = ''
 const inFlight: Map<string, Promise<RepoInfo>> = new Map()
+let i18nLoading = '载入中…'
+let i18nLastUpdated = '更新'
 
 const reGithubImport = /"github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)(?:\/[^"]*)?"/
 
@@ -77,11 +81,14 @@ class GithubInlayProvider implements vscode.InlayHintsProvider {
       const pos = new vscode.Position(line, endIdx + 1)
       const cached = getRepoInfoCached(owner, repo)
       if (cached) {
-        const label = labelFormat.replace('{stars}', String(cached.stars)).replace('{date}', cached.updatedDate)
+        const label = labelFormat
+          .replace('{stars}', String(cached.stars))
+          .replace('{date}', cached.updatedDate)
+          .replace('{lastUpdated}', i18nLastUpdated)
         hints.push(new vscode.InlayHint(pos, `  ${label}`))
       } else {
         if (showLoading) {
-          hints.push(new vscode.InlayHint(pos, '  载入中…'))
+          hints.push(new vscode.InlayHint(pos, `  ${i18nLoading}`))
         }
         getRepoInfo(owner, repo).then(() => this.emitter.fire())
       }
@@ -94,6 +101,7 @@ export function activate(context: vscode.ExtensionContext) {
   const selector = { language: 'go', scheme: 'file' }
   const provider = new GithubInlayProvider()
   context.subscriptions.push(vscode.languages.registerInlayHintsProvider(selector, provider))
+  loadI18n(context)
   applyConfig()
   context.subscriptions.push(vscode.workspace.onDidChangeConfiguration((e: vscode.ConfigurationChangeEvent) => {
     if (
@@ -121,6 +129,29 @@ function applyConfig() {
   const ttlMin = cfg.get<number>('cacheTtlMinutes', 10)
   ttlMillis = Math.max(1, ttlMin) * 60 * 1000
   showLoading = cfg.get<boolean>('showLoading', true)
-  labelFormat = cfg.get<string>('labelFormat', '⭐ {stars} • 更新 {date}')
+  const defaultFormat = `⭐ {stars} • {lastUpdated} {date}`
+  labelFormat = cfg.get<string>('labelFormat', defaultFormat)
   githubToken = cfg.get<string>('githubToken', '') || process.env.GITHUB_TOKEN || ''
+}
+
+function loadI18n(context: vscode.ExtensionContext) {
+  const uiLang = (vscode.env.language || 'en').toLowerCase()
+  const langKey = uiLang.startsWith('zh') ? 'zh' : 'en'
+  const baseDir = path.resolve(context.extensionPath, '../config/i18n')
+  const langPath = path.join(baseDir, `${langKey}.json`)
+  const enPath = path.join(baseDir, 'en.json')
+  let payload: any = null
+  try {
+    const data = fs.readFileSync(fs.existsSync(langPath) ? langPath : enPath, 'utf-8')
+    payload = JSON.parse(data)
+  } catch {
+    try {
+      const data = fs.readFileSync(enPath, 'utf-8')
+      payload = JSON.parse(data)
+    } catch {
+      payload = { loading: 'loading...', lastUpdated: 'last updated at' }
+    }
+  }
+  i18nLoading = String(payload.loading || i18nLoading)
+  i18nLastUpdated = String(payload.lastUpdated || i18nLastUpdated)
 }

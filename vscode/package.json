@@ -8,12 +8,8 @@
   "engines": {
     "vscode": "^1.86.0"
   },
-  "categories": [
-    "Other"
-  ],
-  "activationEvents": [
-    "onLanguage:go"
-  ],
+  "categories": ["Other"],
+  "activationEvents": ["onLanguage:go"],
   "main": "./dist/extension.js",
   "contributes": {
     "configuration": {
@@ -67,19 +63,19 @@
     "typecheck": "tsc --noEmit",
     "prepack": "tsup src/extension.ts --format cjs --dts --out-dir dist",
     "package": "vsce package",
-    "publish": "vsce publish"
+    "publish": "vsce publish",
+    "check": "biome check --fix ."
   },
   "devDependencies": {
     "@types/node": "^20.11.17",
     "@types/vscode": "^1.86.0",
     "tsup": "^8.0.1",
     "typescript": "^5.4.5",
-    "@vscode/vsce": "^3.0.0"
+    "@vscode/vsce": "^3.0.0",
+    "@biomejs/biome": "^1.7.3"
   },
   "dependencies": {
     "undici": "^6.18.2"
   },
-  "files": [
-    "dist"
-  ]
+  "files": ["dist"]
 }

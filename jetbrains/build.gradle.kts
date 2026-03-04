@@ -1,6 +1,6 @@
 plugins {
     kotlin("jvm") version "1.9.22"
-    id("org.jetbrains.intellij") version "1.16.1"
+    id("org.jetbrains.intellij") version "1.17.3"
 }
 
 group = "com.deplens"
@@ -11,9 +11,20 @@ repositories {
 }
 
 intellij {
-    version.set("2024.3")
-    type.set("IC")
-    plugins.set(listOf("com.goide"))
+    val propPath = project.findProperty("localGoland") as String?
+
+    val envPath = System.getenv("GOLAND_PATH")
+
+    val finalPath = propPath ?: envPath
+
+    if (finalPath != null && file(finalPath).exists()) {
+        println("Using local IDE: $finalPath")
+        localPath.set(finalPath)
+    } else {
+        println("No local IDE provided, downloading GO 2025.2")
+        type.set("GO")
+        version.set("2025.2")
+    }
 }
 
 kotlin {

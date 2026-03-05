@@ -1,56 +1,78 @@
 package com.deplens.go
 
-import com.intellij.openapi.components.Service
+import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.project.Project
+import com.intellij.platform.ide.progress.ModalTaskOwner.project
+import kotlinx.coroutines.*
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import java.net.HttpURLConnection
 import java.net.URI
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
-import java.time.Duration
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.concurrent.ConcurrentHashMap
 
-@Service
+data class GithubRepoInfo(
+    val stars: Int,
+    val updatedDate: String,
+)
+
+@Serializable
+data class GithubApiResponse(
+    val stargazers_count: Int,
+    val pushed_at: String,
+)
+
 object GithubRepoInfoService {
-    private data class Cached(val info: RepoInfo, val ts: Long)
-    data class RepoInfo(val stars: Int, val updatedDate: String)
+    private val cache = ConcurrentHashMap<String, GithubRepoInfo>()
+    private val requests = ConcurrentHashMap<String, Job>()
+    private val json = Json { ignoreUnknownKeys = true }
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    private val httpClient: HttpClient = HttpClient.newBuilder()
-        .connectTimeout(Duration.ofSeconds(5))
-        .build()
-    private val cache = ConcurrentHashMap<String, Cached>()
-    private const val ttlMillis: Long = 10 * 60 * 1000
-
-    fun getRepoInfo(owner: String, repo: String): RepoInfo {
-        val key = "$owner/$repo"
-        val now = System.currentTimeMillis()
-        cache[key]?.let { c ->
-            if (now - c.ts < ttlMillis) return c.info
-        }
-        val info = fetchRepoInfo(key)
-        cache[key] = Cached(info, now)
-        return info
+    fun getCacheKey(owner: String, repo: String): String {
+        return "$owner/$repo"
     }
 
-    private fun fetchRepoInfo(fullName: String): RepoInfo {
-        return runCatching {
-            val url = URI.create("https://api.github.com/repos/$fullName")
-            val req = HttpRequest.newBuilder(url)
-                .header("Accept", "application/vnd.github+json")
-                .timeout(Duration.ofSeconds(5))
-                .GET()
-                .build()
-            val resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString())
-            if (resp.statusCode() != 200) {
-                return RepoInfo(0, "—")
-            }
-            val body = resp.body()
-            val stars = STAR_REGEX.find(body)?.groupValues?.get(1)?.toIntOrNull() ?: 0
-            val updated = UPDATED_REGEX.find(body)?.groupValues?.get(1)?.take(10) ?: "—"
-            RepoInfo(stars, updated)
-        }.getOrElse {
-            RepoInfo(0, "—")
-        }
+    fun getRepoInfo(owner: String, repo: String): GithubRepoInfo? {
+        val cacheKey = getCacheKey(owner, repo)
+        val cached = cache[cacheKey]
+        return cached
     }
 
-    private val STAR_REGEX = Regex("\"stargazers_count\"\\s*:\\s*(\\d+)")
-    private val UPDATED_REGEX = Regex("\"updated_at\"\\s*:\\s*\"([^\"]+)\"")
+    suspend fun fetchRepoInfo(owner: String, repo: String): GithubRepoInfo? = withContext(Dispatchers.IO) {
+        val url = URI("https://api.github.com/repos/$owner/$repo").toURL()
+        val connection = url.openConnection() as HttpURLConnection
+        connection.requestMethod = "GET"
+        connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
+        connection.connectTimeout = 10_000
+        connection.readTimeout = 10_000
+
+        try {
+            val inputStream = connection.inputStream
+            val response = inputStream.bufferedReader().use { it.readText() }
+            val apiResponse = json.decodeFromString<GithubApiResponse>(response)
+
+            val instant = Instant.parse(apiResponse.pushed_at)
+            val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(ZoneId.systemDefault())
+            val formattedDate = formatter.format(instant)
+
+            val info = GithubRepoInfo(
+                stars = apiResponse.stargazers_count,
+                updatedDate = formattedDate,
+            )
+
+            cache[getCacheKey(owner, repo)] = info
+
+
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            connection.disconnect()
+        }
+
+        getRepoInfo(owner, repo)
+    }
 }

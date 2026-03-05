@@ -23,12 +23,6 @@ import com.intellij.openapi.util.Key
 
 // 实现Disposable接口，解决addEditorFactoryListener废弃警告
 class GithubImportInlayProvider : InlayHintsProvider<NoSettings>, Disposable {
-    // 协程作用域（使用SupervisorJob，可通过Disposable取消）
-    private val coroutineScope = CoroutineScope(
-        Dispatchers.IO +
-                SupervisorJob() +
-                CoroutineName("GithubImportInlayScope")
-    )
 
     // 核心缓存：仓库信息
     private val repoInfoCache = ConcurrentHashMap<String, GithubRepoInfo?>()
@@ -44,7 +38,6 @@ class GithubImportInlayProvider : InlayHintsProvider<NoSettings>, Disposable {
             object : EditorFactoryListener {
                 override fun editorReleased(event: EditorFactoryEvent) {
                     // 编辑器关闭时取消协程，清空缓存
-                    coroutineScope.cancel("编辑器已关闭，取消协程")
                     repoInfoCache.clear()
                 }
             },
@@ -73,7 +66,9 @@ class GithubImportInlayProvider : InlayHintsProvider<NoSettings>, Disposable {
                         val displayText = repoInfoCache[repoKey]?.let {
                             // TODO 优化这里硬编码的逻辑
                             if (it.stars == -1) "加载失败" else "⭐ ${it.stars} • 最后更新 ${it.updatedDate}"
-                        } ?: "载入中…"
+                        } ?: "加载中…"
+
+                        LOG.info("UI文案 $displayText" )
 
                         val textPresentation = factory.smallText(displayText)
                         val finalPresentation = factory.container(
@@ -84,24 +79,27 @@ class GithubImportInlayProvider : InlayHintsProvider<NoSettings>, Disposable {
 
                         // 异步加载数据 + 触发自动刷新
                         if (repoInfoCache[repoKey] == null) {
-                            coroutineScope.launch {
+                            // 异步执行网络请求（使用IDE原生线程池）
+                            com.intellij.openapi.application.ApplicationManager.getApplication().executeOnPooledThread {
+                                var resultRepoInfo: GithubRepoInfo? = null
                                 try {
-                                    val repoInfo = GithubRepoInfoService.getRepoInfo(owner, repo)
-                                    // TODO 优化加载失败
-                                    repoInfoCache[repoKey] = repoInfo ?: GithubRepoInfo(-1, "加载失败")
-
-                                    launch(Dispatchers.Main) {
-                                        if (project.isDisposed.not() && editor.project != null) {
-                                            file.putUserData(REFRESH_MARKER, System.currentTimeMillis())
-                                            LOG.debug("缓存更新，框架自动刷新Hint：$repoKey")
-                                        }
-                                    }
+                                    // 执行请求（即使抛异常，也会走finally）
+                                    resultRepoInfo = GithubRepoInfoService.fetchRepoInfo(owner, repo)
                                 } catch (e: Exception) {
-                                    LOG.error("获取仓库信息失败：$repoKey", e)
-                                    repoInfoCache[repoKey] = GithubRepoInfo(-1, "加载失败")
-                                    launch(Dispatchers.Main) {
-                                        if (project.isDisposed.not() && editor.project != null) {
+                                    // 捕获所有异常，确保后续逻辑执行
+                                    LOG.error("请求仓库信息异常", e)
+                                    resultRepoInfo = GithubRepoInfo(-1, "加载失败") // 异常兜底
+                                } finally {
+                                    // 强制执行UI更新（finally 确保100%执行）
+                                    val finalRepoInfo = resultRepoInfo ?: GithubRepoInfo(-1, "加载失败") // null兜底
+                                    com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater {
+                                        try {
+                                            // UI更新逻辑加异常捕获，避免中断
+                                            repoInfoCache[repoKey] = finalRepoInfo
                                             file.putUserData(REFRESH_MARKER, System.currentTimeMillis())
+                                            LOG.info("UI更新完成：$repoKey -> ${finalRepoInfo.stars}")
+                                        } catch (uiEx: Exception) {
+                                            LOG.error("UI更新异常", uiEx)
                                         }
                                     }
                                 }
@@ -137,10 +135,9 @@ class GithubImportInlayProvider : InlayHintsProvider<NoSettings>, Disposable {
         }
     }
 
-    // 实现Disposable接口的dispose方法（无override报错，因为是直接实现）
     override fun dispose() {
-        // 插件销毁时取消协程，清空缓存（生命周期最终兜底）
-        coroutineScope.cancel("插件已销毁，取消协程")
-        repoInfoCache.clear()
+        GithubRepoInfoService.clearCache()
+        GithubRepoInfoService.cancelAllRequests()
+        GithubRepoInfoService.shutdown()
     }
 }

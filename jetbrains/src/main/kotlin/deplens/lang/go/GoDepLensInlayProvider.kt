@@ -1,29 +1,27 @@
 package deplens.lang.go
 
 import com.goide.psi.GoImportSpec
-import com.intellij.codeInsight.hints.declarative.*
+import com.intellij.codeInsight.hints.declarative.InlayHintsCollector
+import com.intellij.codeInsight.hints.declarative.InlayHintsProvider
+import com.intellij.codeInsight.hints.declarative.InlayTreeSink
+import com.intellij.codeInsight.hints.declarative.SharedBypassCollector
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.project.DumbAware
-import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
-import deplens.utils.GithubRepoInfo
+import deplens.utils.UiUtils
 import deplens.utils.GithubRepoInfoService
 import deplens.utils.RepoKey
-import java.util.concurrent.ConcurrentHashMap
+import deplens.common.Result
+
 
 class GoDepLensInlayProvider : InlayHintsProvider, DumbAware {
 
     companion object {
 
         private val LOG = logger<GoDepLensInlayProvider>()
-
-        private val repoInfoCache = ConcurrentHashMap<RepoKey, GithubRepoInfo>()
-
-        private val loadingKeys = ConcurrentHashMap.newKeySet<RepoKey>()
     }
 
     private fun extractRepoInfo(element: GoImportSpec): RepoKey? {
@@ -48,59 +46,33 @@ class GoDepLensInlayProvider : InlayHintsProvider, DumbAware {
 
                 val repoKey = extractRepoInfo(element) ?: return
 
-                val info = repoInfoCache[repoKey]
+                val res = GithubRepoInfoService.getRepoInfo(repoKey.owner, repoKey.repo)
 
-                val displayText = when {
-                    info == null -> "加载中…"
-                    info.stars == -1 -> "加载失败"
-                    else -> "⭐ ${info.stars} • ${info.updatedDate}"
+                val displayText = when (res.result) {
+                    Result.NONE -> "加载中…"
+                    Result.SUCCESS -> "⭐ ${res.data?.stars ?: 0} • 最后更新时间 ${res.data?.updatedDate ?: "N/A"}"
+                    else -> "加载失败"
                 }
 
                 val literal = element.stringLiteral ?: return
                 val offset = literal.textRange.endOffset
 
-                sink.addPresentation(
-                    InlineInlayPosition(offset, relatedToPrevious = true),
-                    hasBackground = true
-                ) {
-                    text(displayText)
-                }
+                UiUtils.addInlay(sink, offset, displayText)
 
-                if (info == null && loadingKeys.add(repoKey)) {
+                if (res.result == Result.NONE) {
 
                     ApplicationManager.getApplication().executeOnPooledThread {
 
                         try {
 
-                            val result = GithubRepoInfoService
+                            GithubRepoInfoService
                                 .fetchRepoInfo(repoKey.owner, repoKey.repo)
-                                ?: GithubRepoInfo(-1, "Error")
 
-                            repoInfoCache[repoKey] = result
-
-                            val project = file.project
-
-                            ApplicationManager.getApplication().invokeLater({
-
-                                if (project.isDisposed || !file.isValid) return@invokeLater
-
-                                val vFile = file.virtualFile ?: return@invokeLater
-
-                                PsiDocumentManager
-                                    .getInstance(project)
-                                    .reparseFiles(listOf(vFile), false)
-
-                            }, ModalityState.NON_MODAL)
+                            UiUtils.refreshInlayHints(file)
 
                         } catch (e: Exception) {
 
                             LOG.warn("Failed to load repo info for $repoKey", e)
-
-                            repoInfoCache[repoKey] = GithubRepoInfo(-1, "Error")
-
-                        } finally {
-
-                            loadingKeys.remove(repoKey)
 
                         }
                     }

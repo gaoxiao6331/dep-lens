@@ -1,7 +1,12 @@
 package deplens.utils
 
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.util.concurrency.AppExecutorUtil
 import com.intellij.util.proxy.CommonProxy
+import deplens.common.RETRY_DELAY_MILLIS
+import deplens.common.Result
+import deplens.common.ResultWrapper
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.*
@@ -14,7 +19,8 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 data class GithubRepoInfo(
-    val stars: Int,
+    val stars: String,
+    val originalStars: Int,
     val updatedDate: String,
 )
 
@@ -32,6 +38,8 @@ object GithubRepoInfoService {
 
     private val LOG = Logger.getInstance(GithubRepoInfoService::class.java)
 
+    private val requestManager = RequestManager()
+
     private val json = Json {
         ignoreUnknownKeys = true
     }
@@ -43,15 +51,9 @@ object GithubRepoInfoService {
             .build()
     }
 
-    // ===== 缓存 =====
+    // TODO cache持久化
+    private val cache = ConcurrentHashMap<String, GithubRepoInfo>()
 
-    private data class CachedRepoInfo(
-        val info: GithubRepoInfo,
-        val cacheTime: Long
-    )
-
-    private val cache = ConcurrentHashMap<String, CachedRepoInfo>()
-    private const val CACHE_EXPIRE_TIME = 10 * 60 * 1000L // 10分钟
 
     // ===== 请求管理 =====
 
@@ -65,32 +67,43 @@ object GithubRepoInfoService {
         return "$owner/$repo"
     }
 
-    fun getRepoInfo(owner: String, repo: String): GithubRepoInfo? {
-        val key = getCacheKey(owner, repo)
-        val cached = cache[key] ?: return null
+    fun isFailure(key: String): Boolean {
 
-        return if (System.currentTimeMillis() - cached.cacheTime < CACHE_EXPIRE_TIME) {
-            cached.info
-        } else {
-            cache.remove(key)
-            null
+        return !cache.containsKey(key) && !requestManager.shouldRequest(key)
+    }
+
+    fun getRepoInfo(owner: String, repo: String): ResultWrapper<GithubRepoInfo> {
+        val key = getCacheKey(owner, repo)
+        return when {
+            cache.containsKey(key) -> ResultWrapper(Result.SUCCESS, cache[key])
+            isFailure(key) -> ResultWrapper(Result.FAILURE, null)
+            else -> ResultWrapper(Result.NONE, null)
         }
     }
 
-    fun fetchRepoInfo(owner: String, repo: String): GithubRepoInfo? {
+    fun fetchRepoInfo(owner: String, repo: String): Unit {
 
         val key = getCacheKey(owner, repo)
 
         val existing = runningRequests[key]
         if (existing != null && !existing.isCanceled()) {
             LOG.debug("Request already running: $key")
-            return null
+            return
         }
+
+        if (!requestManager.shouldRequest(key)) {
+            LOG.debug("should not request: $key")
+            return
+        }
+
+        // TOOD 使用界面配置
+        val githubToken = System.getenv("GITHUB_TOKEN") ?: ""
 
         val request = Request.Builder()
             .url("https://api.github.com/repos/$owner/$repo")
             .header("Accept", "application/vnd.github+json")
-            .header("User-Agent", "DepLens")
+            .header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36")
+            .header("Authorization", "Bearer $githubToken")
             .build()
 
         val client = httpClient.newBuilder()
@@ -101,36 +114,45 @@ object GithubRepoInfoService {
 
         runningRequests[key] = call
 
-        return try {
+        try {
 
             val response = call.execute()
 
             if (!response.isSuccessful) {
                 LOG.warn("GitHub API failed: ${response.code}")
-                return GithubRepoInfo(-1, "加载失败")
             }
 
-            val body = response.body?.string() ?: return GithubRepoInfo(-1, "加载失败")
+            val body = response.body?.string() ?: return
 
             val apiResponse = json.decodeFromString<GithubApiResponse>(body)
 
             val instant = Instant.parse(apiResponse.pushed_at)
 
             val repoInfo = GithubRepoInfo(
-                stars = apiResponse.stargazers_count,
+                stars = Formatter.formatGithubStar(apiResponse.stargazers_count),
+                originalStars = apiResponse.stargazers_count,
                 updatedDate = dateFormatter.format(instant)
             )
 
             LOG.info("[请求成功] $key, 星数: ${repoInfo.stars}, 更新日期: ${repoInfo.updatedDate}")
 
-            cache[key] = CachedRepoInfo(repoInfo, System.currentTimeMillis())
-
-            repoInfo
+            cache[key] = repoInfo
 
         } catch (e: Exception) {
 
             LOG.warn("GitHub request error: $key", e)
-            GithubRepoInfo(-1, "加载失败")
+
+            requestManager.updateFailed(key)
+
+            // 3s后自动重试
+            AppExecutorUtil.getAppScheduledExecutorService().schedule(
+                {
+                    fetchRepoInfo(owner, repo)
+                },
+                RETRY_DELAY_MILLIS,
+                TimeUnit.MILLISECONDS
+            )
+
 
         } finally {
 

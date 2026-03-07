@@ -8,8 +8,13 @@
     <depends>org.jetbrains.plugins.go</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <codeInsight.inlayProvider
+        <codeInsight.declarativeInlayProvider
                 implementationClass="com.deplens.go.GithubImportInlayProvider"
-                language="go"/>
+                language="go"
+                isEnabledByDefault="true"
+                group="OTHER_GROUP"
+                providerId="deplens.github.import.inlay"
+                nameKey="inlay.provider.name"
+                bundle="messages.DepLensBundle"/>
     </extensions>
 </idea-plugin>

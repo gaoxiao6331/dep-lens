@@ -21,3 +21,4 @@ bin/
 Thumbs.db
 .env
 .env.*
+.intellijPlatform/

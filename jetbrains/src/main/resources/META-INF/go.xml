@@ -1,0 +1,12 @@
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <codeInsight.declarativeInlayProvider
+                implementationClass="deplens.lang.go.GoDepLensInlayProvider"
+                language="go"
+                isEnabledByDefault="true"
+                group="OTHER_GROUP"
+                providerId="deplens.inlay.go"
+                nameKey="inlay.provider.name"
+                bundle="messages.DepLensBundle"/>
+    </extensions>
+</idea-plugin>

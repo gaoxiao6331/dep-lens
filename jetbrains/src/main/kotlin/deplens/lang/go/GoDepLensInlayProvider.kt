@@ -1,44 +1,58 @@
-package com.deplens.go
+package deplens.lang.go
 
 import com.goide.psi.GoImportSpec
-import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
-import com.intellij.codeInsight.hints.declarative.*
+import com.intellij.codeInsight.hints.declarative.InlayHintsCollector
+import com.intellij.codeInsight.hints.declarative.InlayHintsProvider
+import com.intellij.codeInsight.hints.declarative.InlayTreeSink
+import com.intellij.codeInsight.hints.declarative.InlineInlayPosition
+import com.intellij.codeInsight.hints.declarative.SharedBypassCollector
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.project.DumbAware
+import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
+import deplens.utils.GithubRepoInfo
+import deplens.utils.GithubRepoInfoService
+import deplens.utils.RepoKey
 import java.util.concurrent.ConcurrentHashMap
-import com.intellij.psi.PsiDocumentManager
+import kotlin.collections.set
 
-/**
- * 使用 2025 新版 Declarative Inlay Hints API
- */
-class GithubImportInlayProvider : InlayHintsProvider, DumbAware {
+class GoDepLensInlayProvider: InlayHintsProvider,  DumbAware  {
 
     companion object {
-        private val LOG = logger<GithubImportInlayProvider>()
+
         private val GITHUB_IMPORT_REGEX = Regex("\"github\\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)\"")
-        
-        // 全局缓存：Key -> GithubRepoInfo
+
+        private val LOG = logger<GoDepLensInlayProvider>()
+
+        // 全局缓存：Key -> DepLensInfo
         // 注意：这里使用全局缓存，跨项目共享
         private val repoInfoCache = ConcurrentHashMap<String, GithubRepoInfo>()
-        
+
         // 记录正在加载的 key，避免重复请求
         private val loadingKeys = ConcurrentHashMap.newKeySet<String>()
+    }
+
+
+    fun extractRepoInfo(element: PsiElement): RepoKey? {
+        // 仅处理 GoImportSpec 元素
+        if (element !is GoImportSpec) return null
+
+        val match = GITHUB_IMPORT_REGEX.find(element.text) ?: return null
+        val owner = match.groupValues[1]
+        val repo = match.groupValues[2]
+
+        return RepoKey(owner, repo)
     }
 
     override fun createCollector(file: PsiFile, editor: Editor): InlayHintsCollector? {
         return object : SharedBypassCollector {
             override fun collectFromElement(element: PsiElement, sink: InlayTreeSink) {
-                // 仅处理 GoImportSpec 元素
-                if (element !is GoImportSpec) return
 
-                val match = GITHUB_IMPORT_REGEX.find(element.text) ?: return
-                val owner = match.groupValues[1]
-                val repo = match.groupValues[2]
-                val repoKey = "$owner/$repo"
+                val repoKeyObj = extractRepoInfo(element) ?: return
+                val repoKey = repoKeyObj.toString()
 
                 // 获取当前缓存数据
                 val info = repoInfoCache[repoKey]
@@ -60,7 +74,7 @@ class GithubImportInlayProvider : InlayHintsProvider, DumbAware {
                 if (info == null && loadingKeys.add(repoKey)) {
                     ApplicationManager.getApplication().executeOnPooledThread {
                         try {
-                            val result = GithubRepoInfoService.fetchRepoInfo(owner, repo)
+                            val result = GithubRepoInfoService.fetchRepoInfo(repoKeyObj.owner, repoKeyObj.repo)
                                 ?: GithubRepoInfo(-1, "加载失败")
 
                             repoInfoCache[repoKey] = result

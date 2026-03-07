@@ -1,20 +1,9 @@
 <idea-plugin>
-    <id>com.deplens.go.depLens</id>
-    <name>Dep Lens for Go</name>
-    <vendor>DepLens</vendor>
-    <description>在Go的import语句后显示GitHub的star数和最后更新时间</description>
+    <id>deplens</id>
+    <name>Dep Lens</name>
+    <vendor>xiaogao</vendor>
+    <description>View details of third-party dependencies</description>
 
     <depends>com.intellij.modules.platform</depends>
-    <depends>org.jetbrains.plugins.go</depends>
-
-    <extensions defaultExtensionNs="com.intellij">
-        <codeInsight.declarativeInlayProvider
-                implementationClass="com.deplens.go.GithubImportInlayProvider"
-                language="go"
-                isEnabledByDefault="true"
-                group="OTHER_GROUP"
-                providerId="deplens.github.import.inlay"
-                nameKey="inlay.provider.name"
-                bundle="messages.DepLensBundle"/>
-    </extensions>
+    <depends optional="true" config-file="go.xml">org.jetbrains.plugins.go</depends>
 </idea-plugin>

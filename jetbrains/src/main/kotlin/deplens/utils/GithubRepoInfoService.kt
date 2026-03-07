@@ -1,10 +1,11 @@
-package com.deplens.go
+package deplens.utils
 
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.util.proxy.CommonProxy
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.*
+import java.net.Proxy
 import java.net.URI
 import java.time.Instant
 import java.time.ZoneId
@@ -22,6 +23,10 @@ data class GithubApiResponse(
     val stargazers_count: Int,
     val pushed_at: String,
 )
+
+data class RepoKey(val owner: String, val repo: String) {
+    override fun toString(): String = "$owner/$repo"
+}
 
 object GithubRepoInfoService {
 
@@ -134,7 +139,7 @@ object GithubRepoInfoService {
         }
     }
 
-    private fun resolveProxy(): java.net.Proxy? {
+    private fun resolveProxy(): Proxy? {
         return try {
             val uri = URI("https://api.github.com")
             val proxies = CommonProxy.getInstance().select(uri)

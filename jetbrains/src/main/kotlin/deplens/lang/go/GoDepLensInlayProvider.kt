@@ -1,6 +1,7 @@
 package deplens.lang.go
 
 import com.goide.psi.GoImportSpec
+import com.goide.vgo.mod.psi.VgoModuleSpec
 import com.intellij.codeInsight.hints.declarative.InlayHintsCollector
 import com.intellij.codeInsight.hints.declarative.InlayHintsProvider
 import com.intellij.codeInsight.hints.declarative.InlayTreeSink
@@ -9,8 +10,11 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.project.DumbAware
+import com.intellij.openapi.util.TextRange
+import com.intellij.psi.PsiComment
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
+import com.intellij.psi.PsiWhiteSpace
 import deplens.utils.UiUtils
 import deplens.utils.GithubRepoInfoService
 import deplens.utils.RepoKey
@@ -24,9 +28,32 @@ class GoDepLensInlayProvider : InlayHintsProvider, DumbAware {
         private val LOG = logger<GoDepLensInlayProvider>()
     }
 
-    private fun extractRepoInfo(element: GoImportSpec): RepoKey? {
+    private fun isIndirectDependency(element: VgoModuleSpec): Boolean {
+        val file = element.containingFile ?: return false
+        val doc = file.viewProvider.document ?: return false
 
-        val path = element.path ?: return null
+        // 找模块元素所在行
+        val lineNum = doc.getLineNumber(element.textOffset)
+        val lineStart = doc.getLineStartOffset(lineNum)
+        val lineEnd = doc.getLineEndOffset(lineNum)
+
+        // 获取整行文本
+        val lineText = doc.getText(TextRange(lineStart, lineEnd))
+
+        // 判断是否包含 // indirect
+        return lineText.contains("// indirect")
+    }
+
+    private fun extractRepoInfo(element: PsiElement): RepoKey? {
+
+        val path = when (element) {
+            is GoImportSpec -> element.path
+            is VgoModuleSpec -> {
+                if (isIndirectDependency(element)) return null
+                element.identifier?.text
+            }
+            else -> return null
+        } ?: return null
 
         if (!path.startsWith("github.com/")) return null
 
@@ -42,9 +69,13 @@ class GoDepLensInlayProvider : InlayHintsProvider, DumbAware {
 
             override fun collectFromElement(element: PsiElement, sink: InlayTreeSink) {
 
-                if (element !is GoImportSpec) return
-
                 val repoKey = extractRepoInfo(element) ?: return
+
+                val offset = when (element) {
+                    is GoImportSpec -> element.stringLiteral?.textRange?.endOffset
+                    is VgoModuleSpec -> element.textRange.endOffset
+                    else -> null
+                } ?: return
 
                 val res = GithubRepoInfoService.getRepoInfo(repoKey.owner, repoKey.repo)
 
@@ -53,9 +84,6 @@ class GoDepLensInlayProvider : InlayHintsProvider, DumbAware {
                     Result.SUCCESS -> "⭐ ${res.data?.stars ?: 0} • 最后更新时间 ${res.data?.updatedDate ?: "N/A"}"
                     else -> "加载失败"
                 }
-
-                val literal = element.stringLiteral ?: return
-                val offset = literal.textRange.endOffset
 
                 UiUtils.addInlay(sink, offset, displayText)
 

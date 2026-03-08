@@ -61,3 +61,13 @@ tasks {
         jvmArgs("-Xmx4g")
     }
 }
+
+val syncI18n = tasks.register<SyncI18nTask>("syncI18n") {
+    inputDir.set(file("../config/i18n"))
+    outputDir.set(file("src/main/resources/messages"))
+}
+
+tasks.named("processResources") {
+    dependsOn(syncI18n)
+}
+

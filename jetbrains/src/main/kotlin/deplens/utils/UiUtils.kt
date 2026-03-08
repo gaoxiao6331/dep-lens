@@ -1,5 +1,6 @@
 package deplens.utils
 
+import com.intellij.codeInsight.hints.declarative.InlayPayload
 import com.intellij.codeInsight.hints.declarative.InlineInlayPosition
 import com.intellij.codeInsight.hints.declarative.InlayTreeSink
 import com.intellij.openapi.application.ApplicationManager
@@ -12,6 +13,7 @@ object UiUtils {
     fun addInlay(sink: InlayTreeSink, offset: Int, displayText: String) {
         sink.addPresentation(
             InlineInlayPosition(offset, relatedToPrevious = true),
+            tooltip = displayText,
             hasBackground = true
         ) {
             text(displayText)

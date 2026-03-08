@@ -19,6 +19,8 @@ import deplens.utils.UiUtils
 import deplens.utils.GithubRepoInfoService
 import deplens.utils.RepoKey
 import deplens.common.Result
+import deplens.common.I18nKey
+import deplens.utils.I18n
 
 
 class GoDepLensInlayProvider : InlayHintsProvider, DumbAware {
@@ -80,9 +82,9 @@ class GoDepLensInlayProvider : InlayHintsProvider, DumbAware {
                 val res = GithubRepoInfoService.getRepoInfo(repoKey.owner, repoKey.repo)
 
                 val displayText = when (res.result) {
-                    Result.NONE -> "加载中…"
-                    Result.SUCCESS -> "⭐ ${res.data?.stars ?: 0} • 最后更新时间 ${res.data?.updatedDate ?: "N/A"}"
-                    else -> "加载失败"
+                    Result.NONE -> I18n.message(I18nKey.loading)
+                    Result.SUCCESS -> "⭐ ${res.data?.stars ?: 0} • ${I18n.message(I18nKey.lastUpdated)} ${res.data?.updatedDate ?: "N/A"}"
+                    else -> I18n.message(I18nKey.failedToLoad)
                 }
 
                 UiUtils.addInlay(sink, offset, displayText)

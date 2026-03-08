@@ -1,4 +1,5 @@
 {
     "loading": "loading...",
-    "lastUpdated": "last updated at"
+    "lastUpdated": "last updated at",
+    "failedToLoad": "failed to load"
 }

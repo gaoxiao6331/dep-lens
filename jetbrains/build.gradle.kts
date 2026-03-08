@@ -65,9 +65,14 @@ tasks {
 val syncI18n = tasks.register<SyncI18nTask>("syncI18n") {
     inputDir.set(file("../config/i18n"))
     outputDir.set(file("src/main/resources/messages"))
+    ktOutputDir.set(file("src/main/kotlin/deplens/common"))
 }
 
 tasks.named("processResources") {
+    dependsOn(syncI18n)
+}
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>() {
     dependsOn(syncI18n)
 }
 

@@ -13,16 +13,24 @@ abstract class SyncI18nTask : DefaultTask() {
     @get:OutputDirectory
     abstract val outputDir: DirectoryProperty
 
+    @get:OutputDirectory
+    abstract val ktOutputDir: DirectoryProperty
+
     @TaskAction
     fun sync() {
         val inDir = inputDir.get().asFile
         val outDir = outputDir.get().asFile
+        val ktDir = ktOutputDir.get().asFile
         outDir.mkdirs()
+        ktDir.mkdirs()
 
         val files = inDir.listFiles { _, name -> name.endsWith(".json") } ?: return
+        val allKeys = mutableSetOf<String>()
+        
         for (file in files) {
             val baseName = file.nameWithoutExtension.replace(" ", "")
-            val outFile = File(outDir, "$baseName.properties")
+            val suffix = if (baseName == "en_US") "" else "_$baseName"
+            val outFile = File(outDir, "DepLensBundle$suffix.properties")
             
             val content = file.readText()
             val props = Properties()
@@ -33,12 +41,28 @@ abstract class SyncI18nTask : DefaultTask() {
                 val value = match.groupValues[2].replace("\\\"", "\"").replace("\\n", "\n")
                 if (key.isNotBlank()) {
                     props.setProperty(key, value)
+                    allKeys.add(key)
                 }
             }
             
             outFile.outputStream().use { os ->
                 props.store(os, "Auto-generated from ${file.name}")
             }
+        }
+        
+        if (allKeys.isNotEmpty()) {
+            val ktFile = File(ktDir, "I18nKey.kt")
+            val ktContent = buildString {
+                appendLine("package deplens.common")
+                appendLine()
+                appendLine("object I18nKey {")
+                for (key in allKeys.sorted()) {
+                    val varName = key.replace(".", "_")
+                    appendLine("    const val $varName = \"$key\"")
+                }
+                appendLine("}")
+            }
+            ktFile.writeText(ktContent)
         }
     }
 }

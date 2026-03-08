@@ -6,4 +6,6 @@
 
     <depends>com.intellij.modules.platform</depends>
     <depends optional="true" config-file="go.xml">org.jetbrains.plugins.go</depends>
+
+    <resource-bundle>messages.DepLensBundle</resource-bundle>
 </idea-plugin>

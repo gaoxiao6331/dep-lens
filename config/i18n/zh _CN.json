@@ -1,4 +1,5 @@
 {
     "loading": "加载中...",
-    "lastUpdated": "最后更新时间"
+    "lastUpdated": "最后更新时间",
+    "failedToLoad": "加载失败"
 }

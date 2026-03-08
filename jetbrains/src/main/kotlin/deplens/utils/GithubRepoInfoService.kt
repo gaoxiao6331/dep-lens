@@ -55,8 +55,6 @@ object GithubRepoInfoService {
     private val cache = ConcurrentHashMap<String, GithubRepoInfo>()
 
 
-    // ===== 请求管理 =====
-
     private val runningRequests = ConcurrentHashMap<String, Call>()
 
     private val dateFormatter = DateTimeFormatter
@@ -103,7 +101,11 @@ object GithubRepoInfoService {
             .url("https://api.github.com/repos/$owner/$repo")
             .header("Accept", "application/vnd.github+json")
             .header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36")
-            .header("Authorization", "Bearer $githubToken")
+            .apply {
+                if (githubToken.isNotBlank()) {
+                    header("Authorization", "Bearer $githubToken")
+                }
+            }
             .build()
 
         val client = httpClient.newBuilder()
@@ -120,6 +122,7 @@ object GithubRepoInfoService {
 
             if (!response.isSuccessful) {
                 LOG.warn("GitHub API failed: ${response.code}")
+                return
             }
 
             val body = response.body?.string() ?: return
@@ -142,19 +145,21 @@ object GithubRepoInfoService {
 
             LOG.warn("GitHub request error: $key", e)
 
-            requestManager.updateFailed(key)
-
-            // 3s后自动重试
-            AppExecutorUtil.getAppScheduledExecutorService().schedule(
-                {
-                    fetchRepoInfo(owner, repo)
-                },
-                RETRY_DELAY_MILLIS,
-                TimeUnit.MILLISECONDS
-            )
-
 
         } finally {
+
+            if(!cache.containsKey(key)) {
+                requestManager.updateFailed(key)
+
+                // 3s后自动重试
+                AppExecutorUtil.getAppScheduledExecutorService().schedule(
+                    {
+                        fetchRepoInfo(owner, repo)
+                    },
+                    RETRY_DELAY_MILLIS,
+                    TimeUnit.MILLISECONDS
+                )
+            }
 
             runningRequests.remove(key)
 

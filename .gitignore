@@ -23,6 +23,5 @@ Thumbs.db
 .env.*
 .intellijPlatform/
 .kotlin/
-DepLensBundle.properties
-DepLensBundle*.properties
+jetbrains/src/main/resources/messages/*
 jetbrains/src/main/kotlin/deplens/common/I18nKey.kt

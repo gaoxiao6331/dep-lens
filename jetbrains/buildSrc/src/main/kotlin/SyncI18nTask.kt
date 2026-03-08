@@ -52,8 +52,10 @@ abstract class SyncI18nTask : DefaultTask() {
         
         if (allKeys.isNotEmpty()) {
             val ktFile = File(ktDir, "I18nKey.kt")
+            val now = java.util.Date()
             val ktContent = buildString {
                 appendLine("// Auto-generated from config/i18n/*.json. Do not edit manually.")
+                appendLine("// ${now}")
                 appendLine("package deplens.common")
                 appendLine()
                 appendLine("object I18nKey {")

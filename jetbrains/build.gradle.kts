@@ -29,7 +29,7 @@ intellijPlatform {
     pluginConfiguration {
         ideaVersion {
             sinceBuild.set("251")
-            untilBuild.set("251.*")
+            untilBuild.set("253.*")
         }
         changeNotes.set(
             """
@@ -51,6 +51,11 @@ tasks {
 
     runIde {
         jvmArgs("-Xmx4g")
+    }
+
+    publishPlugin {
+        token.set(System.getenv("JB_MARKETPLACE_TOKEN"))
+        channels.set(listOf("default"))
     }
 }
 

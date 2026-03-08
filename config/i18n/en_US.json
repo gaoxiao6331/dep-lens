@@ -1,4 +1,5 @@
 {
+    "pluginName": "Dep Lens",
     "loading": "loading...",
     "lastUpdated": "last updated at",
     "failedToLoad": "failed to load"

@@ -6,7 +6,7 @@
                 isEnabledByDefault="true"
                 group="OTHER_GROUP"
                 providerId="deplens.inlay.go"
-                nameKey="inlay.provider.name"
+                nameKey="pluginName"
                 bundle="messages.DepLensBundle"/>
         <codeInsight.declarativeInlayProvider
                 implementationClass="deplens.lang.go.GoDepLensInlayProvider"
@@ -14,7 +14,7 @@
                 isEnabledByDefault="true"
                 group="OTHER_GROUP"
                 providerId="deplens.inlay.go.mod"
-                nameKey="inlay.provider.name"
+                nameKey="pluginName"
                 bundle="messages.DepLensBundle"/>
     </extensions>
 </idea-plugin>

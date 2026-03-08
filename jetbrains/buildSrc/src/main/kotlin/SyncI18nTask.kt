@@ -46,13 +46,14 @@ abstract class SyncI18nTask : DefaultTask() {
             }
             
             outFile.outputStream().use { os ->
-                props.store(os, "Auto-generated from ${file.name}")
+                props.store(os, "Auto-generated from config/i18n/${file.name}. Do not edit manually.")
             }
         }
         
         if (allKeys.isNotEmpty()) {
             val ktFile = File(ktDir, "I18nKey.kt")
             val ktContent = buildString {
+                appendLine("// Auto-generated from config/i18n/*.json. Do not edit manually.")
                 appendLine("package deplens.common")
                 appendLine()
                 appendLine("object I18nKey {")

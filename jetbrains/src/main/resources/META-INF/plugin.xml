@@ -1,7 +1,8 @@
 <idea-plugin>
     <id>deplens</id>
     <name>Dep Lens</name>
-    <vendor>xiaogao</vendor>
+    <version>0.1.0</version>
+    <vendor email="gaoxiao6331@163.com">xiaogao</vendor>
     <description>View details of third-party dependencies</description>
 
     <depends>com.intellij.modules.platform</depends>

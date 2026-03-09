@@ -8,6 +8,7 @@ import deplens.common.RETRY_DELAY_MILLIS
 import deplens.common.Result
 import deplens.common.ResultWrapper
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.*
 import java.net.Proxy
@@ -18,10 +19,12 @@ import java.time.format.DateTimeFormatter
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
+@Serializable
 data class GithubRepoInfo(
     val stars: String,
     val originalStars: Int,
     val updatedDate: String,
+    val fetchedAt: Long = System.currentTimeMillis()
 )
 
 @Serializable
@@ -51,9 +54,56 @@ object GithubRepoInfoService {
             .build()
     }
 
-    // TODO cache持久化
+    private val cacheFile: java.io.File by lazy {
+        java.io.File(com.intellij.openapi.application.PathManager.getSystemPath(), "deplens/github_repo_cache.json").apply {
+            parentFile.mkdirs()
+        }
+    }
+
     private val cache = ConcurrentHashMap<String, GithubRepoInfo>()
 
+    init {
+        loadCacheFromDisk()
+    }
+
+    private fun loadCacheFromDisk() {
+        try {
+            if (cacheFile.exists()) {
+                val content = cacheFile.readText()
+                if (content.isNotBlank()) {
+                    val map = json.decodeFromString<Map<String, GithubRepoInfo>>(content)
+                    val now = System.currentTimeMillis()
+                    val threeDaysMillis = 3 * 24 * 60 * 60 * 1000L
+                    var hasExpired = false
+
+                    for ((k, v) in map) {
+                        if (now - v.fetchedAt > threeDaysMillis) {
+                            hasExpired = true
+                        } else {
+                            cache[k] = v
+                        }
+                    }
+
+                    if (hasExpired) {
+                        saveCacheToDiskAsync()
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            LOG.warn("Failed to load github repo cache", e)
+        }
+    }
+
+    private fun saveCacheToDiskAsync() {
+        AppExecutorUtil.getAppExecutorService().execute {
+            try {
+                val content = json.encodeToString(cache.toMap())
+                cacheFile.writeText(content)
+            } catch (e: Exception) {
+                LOG.warn("Failed to save github repo cache", e)
+            }
+        }
+    }
 
     private val runningRequests = ConcurrentHashMap<String, Call>()
 
@@ -72,8 +122,19 @@ object GithubRepoInfoService {
 
     fun getRepoInfo(owner: String, repo: String): ResultWrapper<GithubRepoInfo> {
         val key = getCacheKey(owner, repo)
+        val info = cache[key]
+        if (info != null) {
+            val now = System.currentTimeMillis()
+            val threeDaysMillis = 3 * 24 * 60 * 60 * 1000L
+            if (now - info.fetchedAt > threeDaysMillis) {
+                cache.remove(key)
+                saveCacheToDiskAsync()
+            } else {
+                return ResultWrapper(Result.SUCCESS, info)
+            }
+        }
+
         return when {
-            cache.containsKey(key) -> ResultWrapper(Result.SUCCESS, cache[key])
             isFailure(key) -> ResultWrapper(Result.FAILURE, null)
             else -> ResultWrapper(Result.NONE, null)
         }
@@ -140,6 +201,7 @@ object GithubRepoInfoService {
             LOG.info("[请求成功] $key, 星数: ${repoInfo.stars}, 更新日期: ${repoInfo.updatedDate}")
 
             cache[key] = repoInfo
+            saveCacheToDiskAsync()
 
         } catch (e: Exception) {
 
@@ -190,6 +252,7 @@ object GithubRepoInfoService {
 
     fun clearCache() {
         cache.clear()
+        saveCacheToDiskAsync()
     }
 
     fun shutdown() {

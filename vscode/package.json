@@ -7,7 +7,7 @@
   "private": true,
   "repository": {
     "type": "git",
-    "url": "https://github.com/gaoxiao/dep-lens.git"
+    "url": "https://github.com/gaoxiao6331/dep-lens.git"
   },
   "license": "GPL-3.0-or-later",
   "engines": {
@@ -51,7 +51,7 @@
     "build": "tsup src/extension.ts --format cjs --dts --out-dir dist --external vscode",
     "watch": "tsup src/extension.ts --format cjs --dts --out-dir dist --watch --external vscode",
     "typecheck": "tsc --noEmit",
-    "prepack": "tsup src/extension.ts --format cjs --dts --out-dir dist --external vscode",
+    "prepack": "tsup src/extension.ts --format cjs --dts --out-dir dist --external vscode && cp -r ../README.md ../LICENSE ../docs .",
     "package": "vsce package",
     "publish": "vsce publish",
     "check": "biome check --fix ."
@@ -68,6 +68,9 @@
   },
   "dependencies": {},
   "files": [
-    "dist"
+    "dist",
+    "docs",
+    "README.md",
+    "LICENSE"
   ]
 }

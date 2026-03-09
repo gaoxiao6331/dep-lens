@@ -25,3 +25,6 @@ Thumbs.db
 .kotlin/
 jetbrains/src/main/resources/messages/*
 jetbrains/src/main/kotlin/deplens/common/I18nKey.kt
+vscode/README.md
+vscode/docs
+vscode/LICENSE

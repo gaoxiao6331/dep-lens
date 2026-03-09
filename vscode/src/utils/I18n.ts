@@ -1,8 +1,8 @@
 import { promises as fs } from "node:fs";
 import * as path from "node:path";
 import * as vscode from "vscode";
-import type en from "../../config/i18n/en_US.json";
-import { logger } from "./logger";
+import type en from "../../../config/i18n/en_US.json";
+import { logger } from "./Logger";
 
 export type Text = typeof en;
 
@@ -26,7 +26,7 @@ let text: Text = {} as Text;
 
 let loaded = false;
 
-export async function loadLocale(context: vscode.ExtensionContext) {
+async function loadLocale(context: vscode.ExtensionContext) {
   const lang = vscode.env.language;
   const configPath = path.join(context.extensionPath, "../config/i18n");
   const langPath = path.join(configPath, `${vscodeLangToJetBrainsLocale(lang)}.json`);
@@ -53,7 +53,20 @@ async function fileExists(p: string) {
   }
 }
 
-export function t(key: keyof Text): string {
-  if (!loaded) throw new Error("i18n not loaded");
+function t(key: keyof Text): string {
+  if (!loaded) return key;
   return text[key] || key;
 }
+
+export const I18n = {
+  loadLocale,
+  message: (key: string, ...params: (string | number | boolean)[]) => {
+    let msg = t(key as keyof Text);
+    if (params.length > 0) {
+      params.forEach((param, index) => {
+        msg = msg.replace(`{${index}}`, String(param));
+      });
+    }
+    return msg;
+  },
+};

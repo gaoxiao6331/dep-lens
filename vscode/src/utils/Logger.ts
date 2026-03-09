@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { NAME } from "./const";
+import { NAME } from "../common/Const";
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 

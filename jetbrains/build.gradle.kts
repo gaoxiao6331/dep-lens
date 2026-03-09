@@ -20,8 +20,11 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     intellijPlatform {
-        goland("2025.1")
-        bundledPlugin("org.jetbrains.plugins.go")
+        intellijIdeaUltimate("2025.1")
+        // local("/Applications/IntelliJ IDEA.app")
+
+        plugins("org.jetbrains.plugins.go:251.23774.16")
+        bundledPlugin("JavaScript") 
     }
 }
 

@@ -28,7 +28,7 @@ export class Logger {
   }
 
   private getConfiguredLevel(): LogLevel {
-    const config = vscode.workspace.getConfiguration("myExtension");
+    const config = vscode.workspace.getConfiguration("depLens");
     return config.get<LogLevel>("logLevel", "info");
   }
 

@@ -2,7 +2,7 @@
   "name": "dep-lens",
   "displayName": "Dep Lens",
   "description": "View details of third-party dependencies",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "gaoxiao",
   "private": true,
   "repository": {
@@ -28,6 +28,17 @@
           "type": "string",
           "default": "",
           "description": "GitHub Token (Leave empty to use anonymous or GITHUB_TOKEN env var)"
+        },
+        "depLens.logLevel": {
+          "type": "string",
+          "enum": [
+            "debug",
+            "info",
+            "warn",
+            "error"
+          ],
+          "default": "info",
+          "description": "Log level for Dep Lens"
         }
       }
     },
@@ -51,7 +62,7 @@
     "build": "tsup src/extension.ts --format cjs --dts --out-dir dist --external vscode",
     "watch": "tsup src/extension.ts --format cjs --dts --out-dir dist --watch --external vscode",
     "typecheck": "tsc --noEmit",
-    "prepack": "tsup src/extension.ts --format cjs --dts --out-dir dist --external vscode && cp -r ../README.md ../LICENSE ../docs .",
+    "prepack": "tsup src/extension.ts --format cjs --dts --out-dir dist --external vscode && cp -r ../README.md ../LICENSE ../docs ../config .",
     "package": "vsce package",
     "publish": "vsce publish",
     "check": "biome check --fix ."
@@ -69,6 +80,7 @@
   "dependencies": {},
   "files": [
     "dist",
+    "config",
     "docs",
     "README.md",
     "LICENSE"

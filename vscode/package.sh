@@ -1,0 +1,2 @@
+pnpm prepack
+pnpm package

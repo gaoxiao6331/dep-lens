@@ -5,6 +5,7 @@ import { I18n } from "./utils/I18n";
 import { logger } from "./utils/Logger";
 
 export async function activate(context: vscode.ExtensionContext) {
+  logger.show();
   logger.info("DepLens activating...");
 
   await I18n.loadLocale(context);

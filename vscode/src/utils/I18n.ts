@@ -1,5 +1,3 @@
-import { promises as fs } from "node:fs";
-import * as path from "node:path";
 import * as vscode from "vscode";
 import type en from "../../../config/i18n/en_US.json";
 import { logger } from "./Logger";
@@ -12,7 +10,6 @@ function vscodeLangToJetBrainsLocale(lang: string): string {
   const parts = lang.split("-");
 
   if (parts.length === 1) {
-    // 例如 ja / fr
     return parts[0];
   }
 
@@ -23,30 +20,38 @@ function vscodeLangToJetBrainsLocale(lang: string): string {
 }
 
 let text: Text = {} as Text;
-
 let loaded = false;
 
 async function loadLocale(context: vscode.ExtensionContext) {
   const lang = vscode.env.language;
-  const configPath = path.join(context.extensionPath, "../config/i18n");
-  const langPath = path.join(configPath, `${vscodeLangToJetBrainsLocale(lang)}.json`);
-  const enPath = path.join(configPath, "en_US.json");
+
+  const i18nDir = vscode.Uri.joinPath(context.extensionUri, "config", "i18n");
+
+  const langFile = vscode.Uri.joinPath(
+    i18nDir,
+    `${vscodeLangToJetBrainsLocale(lang)}.json`
+  );
+
+  const enFile = vscode.Uri.joinPath(i18nDir, "en_US.json");
 
   try {
-    const filePath = (await fileExists(langPath)) ? langPath : enPath;
-    const data = await fs.readFile(filePath, "utf-8");
-    text = JSON.parse(data);
-  } catch {
+    const fileUri = (await pathExists(langFile)) ? langFile : enFile;
+
+    const data = await vscode.workspace.fs.readFile(fileUri);
+    text = JSON.parse(Buffer.from(data).toString("utf8"));
+
+    logger.info(`Loaded locale file for language ${lang} from ${fileUri.fsPath}`);
+  } catch (err) {
     text = {} as Text;
-    logger.error(`Failed to load locale file for language ${lang}`);
+    logger.error(`Failed to load locale file for language ${lang} from ${i18nDir.fsPath}`, true); 
   } finally {
     loaded = true;
   }
 }
 
-async function fileExists(p: string) {
+async function pathExists(uri: vscode.Uri) {
   try {
-    await fs.access(p);
+    await vscode.workspace.fs.stat(uri);
     return true;
   } catch {
     return false;
@@ -60,13 +65,14 @@ function t(key: keyof Text): string {
 
 export const I18n = {
   loadLocale,
-  message: (key: string, ...params: (string | number | boolean)[]) => {
+
+  message: (key: string, ...params: any[]) => {
     let msg = t(key as keyof Text);
-    if (params.length > 0) {
-      params.forEach((param, index) => {
-        msg = msg.replace(`{${index}}`, String(param));
-      });
-    }
+
+    params.forEach((param, index) => {
+      msg = msg.replace(`{${index}}`, String(param));
+    });
+
     return msg;
   },
 };

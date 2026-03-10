@@ -3,6 +3,7 @@
   "displayName": "Dep Lens",
   "description": "View details of third-party dependencies",
   "version": "0.1.1",
+  "icon": "docs/img/logo_rect.png",
   "publisher": "gaoxiao",
   "private": true,
   "repository": {

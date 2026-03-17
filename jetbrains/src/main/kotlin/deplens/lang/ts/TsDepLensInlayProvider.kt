@@ -17,6 +17,7 @@ import deplens.utils.GithubRepoInfoService
 import deplens.common.Result
 import deplens.common.I18nKey
 import deplens.utils.I18n
+import deplens.utils.NpmPkgInfoService
 
 class TsDepLensInlayProvider : InlayHintsProvider, DumbAware {
 
@@ -29,40 +30,66 @@ class TsDepLensInlayProvider : InlayHintsProvider, DumbAware {
             override fun collectFromElement(element: PsiElement, sink: InlayTreeSink) {
                 if (!TsImportResolver.isImport(element)) return
 
-                val projectPath = file.project.basePath ?: return
-                val projectRoot = LocalFileSystem.getInstance().findFileByPath(projectPath) ?: return
+                val dep = TsImportResolver.getDepName(element) ?: return
+                if (TsImportResolver.isLocalImport(dep)) return
 
-                val importPath = TsImportResolver.getDependencyPath(element) ?: return
-                if (TsImportResolver.isLocalImport(importPath)) return
+                val pkg = TsImportResolver.getPkgName(dep)
 
-                val pkgName = TsImportResolver.getModuleName("TODO")
+                // 获取pkg信息
+                val npmRes = NpmPkgInfoService.getPackageInfo(pkg)
 
-                val pkgJsonFile = TsImportResolver.findPackageJsonFile(file.virtualFile.parent, pkgName, projectRoot) ?: return
+                when (npmRes.result) {
+                    Result.NONE ->  {
+                        ApplicationManager.getApplication().executeOnPooledThread {
+                            try {
+                                NpmPkgInfoService.fetchPackageInfo(pkg) {
+                                    val npmRes = NpmPkgInfoService.getPackageInfo(pkg)
 
-                val repoKey = TsImportResolver.resolveGithubRepoFromPackageJson(pkgJsonFile) ?: return
+                                    if(npmRes.result == Result.SUCCESS) {
+                                        val url = (npmRes.data?.githubUrl ?: "")
+                                        val repoKey = GithubRepoInfoService.getRepoKey(url)
+                                        if(repoKey != null) {
+                                            val repoRes = GithubRepoInfoService.getRepoInfo(repoKey.owner, repoKey.repo)
+                                            if(repoRes.result == Result.NONE) {
+                                                GithubRepoInfoService.fetchRepoInfo(repoKey.owner, repoKey.repo) {
+                                                    UiUtils.refreshInlayHints(file)
+                                                }
+                                            }
+
+                                        }
+                                    }
+
+                                }
+
+                            } catch (e: Exception) {
+                                LOG.warn("Failed to load repo info for \$repoKey", e)
+                            }
+                        }
+
+                        return
+                    }
+                    Result.SUCCESS -> {}
+                    else -> return // TODO: pending 状态下没有注册刷新，可能导致bug
+                }
+
+                val npmInfo = npmRes.data ?: return
+
+                val url = npmInfo.githubUrl ?: return
+
+                val repoKey = GithubRepoInfoService.getRepoKey(url) ?: return
+
+                // 获取github信息
+                val repoRes = GithubRepoInfoService.getRepoInfo(repoKey.owner, repoKey.repo)
 
                 val offset = element.textRange.endOffset
 
-                val res = GithubRepoInfoService.getRepoInfo(repoKey.owner, repoKey.repo)
-
-                val displayText = when (res.result) {
+                val displayText = when (repoRes.result) {
                     Result.NONE -> I18n.message(I18nKey.loading)
-                    Result.SUCCESS -> "⭐ ${res.data?.stars ?: 0} • ${I18n.message(I18nKey.lastUpdated)} ${res.data?.updatedDate ?: "N/A"}"
+                    Result.SUCCESS -> "⭐ ${repoRes.data?.stars ?: 0} • ${I18n.message(I18nKey.lastUpdated)} ${repoRes.data?.updatedDate ?: "N/A"}"
                     else -> I18n.message(I18nKey.failedToLoad)
                 }
 
                 UiUtils.addInlay(sink, offset, displayText)
-
-                if (res.result == Result.NONE) {
-                    ApplicationManager.getApplication().executeOnPooledThread {
-                        try {
-                            GithubRepoInfoService.fetchRepoInfo(repoKey.owner, repoKey.repo)
-                            UiUtils.refreshInlayHints(file)
-                        } catch (e: Exception) {
-                            LOG.warn("Failed to load repo info for \$repoKey", e)
-                        }
-                    }
-                }
             }
         }
     }

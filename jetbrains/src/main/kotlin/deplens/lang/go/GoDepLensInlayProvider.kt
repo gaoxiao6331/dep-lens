@@ -57,12 +57,7 @@ class GoDepLensInlayProvider : InlayHintsProvider, DumbAware {
             else -> return null
         } ?: return null
 
-        if (!path.startsWith("github.com/")) return null
-
-        val parts = path.split("/")
-        if (parts.size < 3) return null
-
-        return RepoKey(parts[1], parts[2])
+      return GithubRepoInfoService.getRepoKey(path)
     }
 
     override fun createCollector(file: PsiFile, editor: Editor): InlayHintsCollector {
@@ -84,7 +79,7 @@ class GoDepLensInlayProvider : InlayHintsProvider, DumbAware {
                 val displayText = when (res.result) {
                     Result.NONE -> I18n.message(I18nKey.loading)
                     Result.SUCCESS -> "⭐ ${res.data?.stars ?: 0} • ${I18n.message(I18nKey.lastUpdated)} ${res.data?.updatedDate ?: "N/A"}"
-                    else -> I18n.message(I18nKey.failedToLoad)
+                    else -> I18n.message(I18nKey.failedToLoad) // TODO: pending 时有问题
                 }
 
                 UiUtils.addInlay(sink, offset, displayText)
@@ -96,9 +91,9 @@ class GoDepLensInlayProvider : InlayHintsProvider, DumbAware {
                         try {
 
                             GithubRepoInfoService
-                                .fetchRepoInfo(repoKey.owner, repoKey.repo)
-
-                            UiUtils.refreshInlayHints(file)
+                                .fetchRepoInfo(repoKey.owner, repoKey.repo) {
+                                    UiUtils.refreshInlayHints(file)
+                                }
 
                         } catch (e: Exception) {
 

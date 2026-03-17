@@ -120,6 +120,15 @@ object GithubRepoInfoService {
         return !cache.containsKey(key) && !requestManager.shouldRequest(key)
     }
 
+    fun getRepoKey(path: String): RepoKey? {
+        if (!path.startsWith("github.com/")) return null
+
+        val parts = path.split("/")
+        if (parts.size < 3) return null
+
+        return RepoKey(parts[1], parts[2])
+    }
+
     fun getRepoInfo(owner: String, repo: String): ResultWrapper<GithubRepoInfo> {
         val key = getCacheKey(owner, repo)
         val info = cache[key]
@@ -140,7 +149,7 @@ object GithubRepoInfoService {
         }
     }
 
-    fun fetchRepoInfo(owner: String, repo: String): Unit {
+    fun fetchRepoInfo(owner: String, repo: String, onFinish: (() -> Unit)? = null): Unit {
 
         val key = getCacheKey(owner, repo)
 
@@ -152,6 +161,7 @@ object GithubRepoInfoService {
 
         if (!requestManager.shouldRequest(key)) {
             LOG.debug("should not request: $key")
+            onFinish?.invoke()
             return
         }
 
@@ -216,7 +226,7 @@ object GithubRepoInfoService {
                 // 3s后自动重试
                 AppExecutorUtil.getAppScheduledExecutorService().schedule(
                     {
-                        fetchRepoInfo(owner, repo)
+                        fetchRepoInfo(owner, repo, onFinish)
                     },
                     RETRY_DELAY_MILLIS,
                     TimeUnit.MILLISECONDS

@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>deplens</id>
     <name>Dep Lens</name>
-    <version>0.1.1</version>
+    <version>0.2.0</version>
     <vendor email="gaoxiao6331@163.com">gaoxiao</vendor>
     <description>View details of third-party dependencies</description>
 

@@ -2,14 +2,6 @@
     <extensions defaultExtensionNs="com.intellij">
         <codeInsight.declarativeInlayProvider
                 implementationClass="deplens.lang.ts.TsDepLensInlayProvider"
-                language="TypeScript"
-                isEnabledByDefault="true"
-                group="OTHER_GROUP"
-                providerId="deplens.inlay.ts"
-                nameKey="pluginName"
-                bundle="messages.DepLensBundle"/>
-        <codeInsight.declarativeInlayProvider
-                implementationClass="deplens.lang.ts.TsDepLensInlayProvider"
                 language="JavaScript"
                 isEnabledByDefault="true"
                 group="OTHER_GROUP"

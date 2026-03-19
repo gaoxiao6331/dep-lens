@@ -110,7 +110,7 @@ object NpmPkgInfoService {
 
     fun getCacheKey(packageName: String): String = packageName
 
-    fun isFailure(packageName: String): Boolean = !cache.containsKey(packageName)
+    fun isFailure(packageName: String): Boolean = false
 
     fun getPackageInfo(packageName: String): ResultWrapper<NpmPackageInfo> {
         val info = cache[packageName]
@@ -137,7 +137,7 @@ object NpmPkgInfoService {
         // 1. 获取 npm registry info
         val registryRequest = Request.Builder()
             .url("https://registry.npmjs.org/$packageName")
-            .header("Accept", "application/vnd.npm.install-v1+json")
+            .header("Accept", "application/json")
             .build()
 
         val call = httpClient.newCall(registryRequest)
@@ -162,6 +162,7 @@ object NpmPkgInfoService {
             val downloadsBody = downloadsResponse.body?.string() ?: return
             val downloadsInfo = json.decodeFromString<NpmDownloadsResponse>(downloadsBody)
 
+            // git+https://github.com/Microsoft/vscode-extension-vscode.git
             val githubUrl = registryInfo.repository?.url?.removePrefix("git+")?.removeSuffix(".git")
 
             val packageInfo = NpmPackageInfo(

@@ -121,12 +121,14 @@ object GithubRepoInfoService {
     }
 
     fun getRepoKey(path: String): RepoKey? {
-        if (!path.startsWith("github.com/")) return null
 
-        val parts = path.split("/")
-        if (parts.size < 3) return null
+        val regex = Regex("""^(https://)?github\.com/(.*)""")
+        val result = regex.find(path) ?: return null
+        val p = result.groupValues[1]
+        val parts = p.split("/")
+        if (parts.size < 2) return null
 
-        return RepoKey(parts[1], parts[2])
+        return RepoKey(parts[0], parts[1])
     }
 
     fun getRepoInfo(owner: String, repo: String): ResultWrapper<GithubRepoInfo> {

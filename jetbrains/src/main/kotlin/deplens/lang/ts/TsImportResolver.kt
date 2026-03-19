@@ -65,9 +65,11 @@ internal object TsImportResolver {
 
     fun getPkgName(depName: String): String = depName.split('/').let { paths ->
         if (paths.isEmpty()) ""
-        else if (depName.startsWith('@')) paths.first()
-        else if (paths.size > 1) paths[0] + "/" + paths[1]
-        else ""
+        else if (depName.startsWith('@')) {
+            if (paths.size > 1) paths[0] + "/" + paths[1]
+            else ""
+        }
+        else paths.first()
     }
 
 }

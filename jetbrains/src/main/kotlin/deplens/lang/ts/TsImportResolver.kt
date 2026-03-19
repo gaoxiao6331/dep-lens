@@ -36,7 +36,7 @@ internal object TsImportResolver {
     }
 
     fun isLocalImport(path: String): Boolean {
-        return JSFileReferencesUtil.isRelative(path)
+        return JSFileReferencesUtil.isRelative(path) || path.startsWith("node:")
     }
 
     fun getDepName(element: PsiElement): String? {

@@ -84,7 +84,14 @@ class TsDepLensInlayProvider : InlayHintsProvider, DumbAware {
                 val offset = element.textRange.endOffset
 
                 val displayText = when (repoRes.result) {
-                    Result.NONE -> I18n.message(I18nKey.loading)
+                    Result.NONE -> {
+                        ApplicationManager.getApplication().executeOnPooledThread {
+                            GithubRepoInfoService.fetchRepoInfo(repoKey.owner, repoKey.repo) {
+                                UiUtils.refreshInlayHints(file)
+                            }
+                        }
+                        I18n.message(I18nKey.loading)
+                    }
                     Result.SUCCESS -> "⭐ ${repoRes.data?.stars ?: 0} • ${I18n.message(I18nKey.lastUpdated)} ${repoRes.data?.updatedDate ?: "N/A"}"
                     else -> I18n.message(I18nKey.failedToLoad)
                 }

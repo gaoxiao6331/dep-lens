@@ -8,5 +8,13 @@
                 providerId="deplens.inlay.js"
                 nameKey="pluginName"
                 bundle="messages.DepLensBundle"/>
+        <codeInsight.declarativeInlayProvider
+                implementationClass="deplens.lang.ts.PackageJsonDepLensInlayProvider"
+                language="JSON"
+                isEnabledByDefault="true"
+                group="OTHER_GROUP"
+                providerId="deplens.inlay.packagejson"
+                nameKey="pluginName"
+                bundle="messages.DepLensBundle"/>
     </extensions>
 </idea-plugin>

@@ -24,7 +24,7 @@ dependencies {
         // local("/Applications/IntelliJ IDEA.app")
 
         plugins("org.jetbrains.plugins.go:251.23774.16")
-        bundledPlugin("JavaScript") 
+        bundledPlugin("JavaScript")
     }
 }
 

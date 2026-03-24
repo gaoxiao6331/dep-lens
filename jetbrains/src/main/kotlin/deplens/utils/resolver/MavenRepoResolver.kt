@@ -1,4 +1,6 @@
-package deplens.utils
+package deplens.utils.resolver
+
+import deplens.utils.service.RepoKey
 
 object MavenRepoResolver {
 

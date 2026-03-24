@@ -8,8 +8,8 @@ import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.project.DumbAware
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
-import deplens.utils.NpmInlayUtils
-import deplens.utils.TsImportResolver
+import deplens.utils.inlay.NpmInlayUtils
+import deplens.utils.resolver.TsImportResolver
 
 class TsDepLensInlayProvider : InlayHintsProvider, DumbAware {
 

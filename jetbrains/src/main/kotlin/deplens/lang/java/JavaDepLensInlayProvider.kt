@@ -10,8 +10,8 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiImportStatement
 import com.intellij.psi.PsiJavaFile
-import deplens.utils.GithubInlayUtils
-import deplens.utils.MavenRepoResolver
+import deplens.utils.inlay.GithubInlayUtils
+import deplens.utils.resolver.MavenRepoResolver
 
 class JavaDepLensInlayProvider : InlayHintsProvider, DumbAware {
 

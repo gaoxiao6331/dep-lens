@@ -11,13 +11,11 @@ import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.util.TextRange
-import com.intellij.psi.PsiComment
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
-import com.intellij.psi.PsiWhiteSpace
 import deplens.utils.UiUtils
-import deplens.utils.GithubRepoInfoService
-import deplens.utils.RepoKey
+import deplens.utils.service.GithubRepoInfoService
+import deplens.utils.service.RepoKey
 import deplens.common.Result
 import deplens.common.I18nKey
 import deplens.utils.I18n

@@ -14,11 +14,11 @@ import deplens.utils.resolver.MavenRepoResolver
 class GradleDepLensInlayProvider : InlayHintsProvider, DumbAware {
 
     private val depNotationRegex = Regex(
-        """(implementation|api|compileOnly|runtimeOnly|testImplementation|testCompileOnly|testRuntimeOnly|kapt|annotationProcessor|classpath|compile|testCompile)\s*\(?\s*['\"]([A-Za-z0-9_.-]+):([A-Za-z0-9_.-]+):[^'\"\s\)]+['\"]"""
+        """(implementation|api|compileOnly|runtimeOnly|testImplementation|testCompileOnly|testRuntimeOnly|kapt|annotationProcessor|classpath|compile|testCompile)\s*\(?\s*['\"]([A-Za-z0-9_.-]+):([A-Za-z0-9_.-]+):([A-Za-z0-9_.-]+)[^'\"\s\)]*['\"]"""
     )
 
     private val mapNotationRegex = Regex(
-        """(implementation|api|compileOnly|runtimeOnly|testImplementation|testCompileOnly|testRuntimeOnly|kapt|annotationProcessor|classpath|compile|testCompile)\s*\(?\s*group:\s*['\"]([A-Za-z0-9_.-]+)['\"]\s*,\s*name:\s*['\"]([A-Za-z0-9_.-]+)['\"]"""
+        """(implementation|api|compileOnly|runtimeOnly|testImplementation|testCompileOnly|testRuntimeOnly|kapt|annotationProcessor|classpath|compile|testCompile)\s*\(?\s*group:\s*['\"]([A-Za-z0-9_.-]+)['\"]\s*,\s*name:\s*['\"]([A-Za-z0-9_.-]+)['\"](?:\s*,\s*version:\s*['\"]([A-Za-z0-9_.-]+)['\"])?"""
     )
 
     override fun createCollector(file: PsiFile, editor: Editor): InlayHintsCollector? {
@@ -35,7 +35,8 @@ class GradleDepLensInlayProvider : InlayHintsProvider, DumbAware {
                 for (match in depNotationRegex.findAll(text)) {
                     val groupId = match.groupValues[2]
                     val artifactId = match.groupValues[3]
-                    val repoKey = MavenRepoResolver.repoKeyFromGroupArtifact(groupId, artifactId) ?: continue
+                    val version = match.groupValues[4]
+                    val repoKey = MavenRepoResolver.repoKeyFromGroupArtifact(groupId, artifactId, version) ?: continue
                     val offset = match.range.last + 1
                     GithubInlayUtils.addRepoInlay(file, sink, repoKey, offset)
                 }
@@ -43,7 +44,8 @@ class GradleDepLensInlayProvider : InlayHintsProvider, DumbAware {
                 for (match in mapNotationRegex.findAll(text)) {
                     val groupId = match.groupValues[2]
                     val artifactId = match.groupValues[3]
-                    val repoKey = MavenRepoResolver.repoKeyFromGroupArtifact(groupId, artifactId) ?: continue
+                    val version = match.groupValues.getOrNull(4)
+                    val repoKey = MavenRepoResolver.repoKeyFromGroupArtifact(groupId, artifactId, version) ?: continue
                     val offset = match.range.last + 1
                     GithubInlayUtils.addRepoInlay(file, sink, repoKey, offset)
                 }

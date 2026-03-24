@@ -1,0 +1,20 @@
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <codeInsight.declarativeInlayProvider
+                implementationClass="deplens.lang.java.GradleDepLensInlayProvider"
+                language="Groovy"
+                isEnabledByDefault="true"
+                group="OTHER_GROUP"
+                providerId="deplens.inlay.gradle.groovy"
+                nameKey="pluginName"
+                bundle="messages.DepLensBundle"/>
+        <codeInsight.declarativeInlayProvider
+                implementationClass="deplens.lang.java.GradleDepLensInlayProvider"
+                language="kotlin"
+                isEnabledByDefault="true"
+                group="OTHER_GROUP"
+                providerId="deplens.inlay.gradle.kotlin"
+                nameKey="pluginName"
+                bundle="messages.DepLensBundle"/>
+    </extensions>
+</idea-plugin>

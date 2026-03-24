@@ -29,3 +29,5 @@ vscode/README.md
 vscode/docs
 vscode/LICENSE
 vscode/config
+
+!jetbrains/lib/*.jar

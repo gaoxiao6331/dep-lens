@@ -28,6 +28,10 @@ dependencies {
 
         plugins("org.jetbrains.plugins.go:251.23774.16")
         bundledPlugin("JavaScript")
+        bundledPlugin("com.intellij.java")
+        bundledPlugin("org.jetbrains.kotlin")
+        bundledPlugin("org.jetbrains.idea.maven")
+        bundledPlugin("org.jetbrains.plugins.gradle")
     }
 }
 

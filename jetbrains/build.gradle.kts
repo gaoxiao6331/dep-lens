@@ -19,6 +19,9 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
+    // 覆盖2025.1的json.jar，缺少psi包
+    compileOnly(files("lib/json.jar"))
+
     intellijPlatform {
         intellijIdeaUltimate("2025.1")
         // local("/Applications/IntelliJ IDEA.app")

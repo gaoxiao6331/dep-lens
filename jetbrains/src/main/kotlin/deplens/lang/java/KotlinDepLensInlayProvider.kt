@@ -8,8 +8,8 @@ import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.project.DumbAware
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
-import deplens.utils.GithubInlayUtils
-import deplens.utils.MavenRepoResolver
+import deplens.utils.inlay.GithubInlayUtils
+import deplens.utils.resolver.MavenRepoResolver
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtImportDirective
 

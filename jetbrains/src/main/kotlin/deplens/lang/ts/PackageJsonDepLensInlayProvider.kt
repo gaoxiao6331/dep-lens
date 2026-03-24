@@ -8,7 +8,7 @@ import com.intellij.psi.PsiFile
 import com.intellij.json.psi.JsonObject
 import com.intellij.json.psi.JsonProperty
 import com.intellij.openapi.diagnostic.logger
-import deplens.utils.NpmInlayUtils
+import deplens.utils.inlay.NpmInlayUtils
 
 class PackageJsonDepLensInlayProvider : InlayHintsProvider, DumbAware {
 

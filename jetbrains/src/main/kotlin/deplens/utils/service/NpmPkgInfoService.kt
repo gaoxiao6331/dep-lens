@@ -1,6 +1,6 @@
-package deplens.utils
+package deplens.utils.service
 
-import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.PathManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.util.concurrency.AppExecutorUtil
 import kotlinx.serialization.Serializable
@@ -8,7 +8,6 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.*
 import java.io.File
-import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.ConcurrentHashMap
@@ -16,6 +15,7 @@ import java.util.concurrent.TimeUnit
 import deplens.common.RETRY_DELAY_MILLIS
 import deplens.common.Result
 import deplens.common.ResultWrapper
+import kotlin.collections.iterator
 
 @Serializable
 data class NpmPackageInfo(
@@ -58,7 +58,7 @@ object NpmPkgInfoService {
     }
 
     private val cacheFile: File by lazy {
-        File(com.intellij.openapi.application.PathManager.getSystemPath(), "deplens/npm_package_cache.json").apply {
+        File(PathManager.getSystemPath(), "deplens/npm_package_cache.json").apply {
             parentFile.mkdirs()
         }
     }

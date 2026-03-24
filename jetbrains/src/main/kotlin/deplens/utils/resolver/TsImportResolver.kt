@@ -1,4 +1,4 @@
-package deplens.utils
+package deplens.utils.resolver
 
 import com.intellij.lang.ecmascript6.psi.ES6ImportCall
 import com.intellij.lang.ecmascript6.psi.ES6ImportDeclaration

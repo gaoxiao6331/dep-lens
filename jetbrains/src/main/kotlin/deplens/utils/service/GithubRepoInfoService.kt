@@ -1,16 +1,19 @@
-package deplens.utils
+package deplens.utils.service
 
-import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.PathManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.intellij.util.proxy.CommonProxy
 import deplens.common.RETRY_DELAY_MILLIS
 import deplens.common.Result
 import deplens.common.ResultWrapper
+import deplens.utils.Formatter
+import deplens.utils.RequestManager
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.*
+import java.io.File
 import java.net.Proxy
 import java.net.URI
 import java.time.Instant
@@ -18,6 +21,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
+import kotlin.collections.iterator
 
 @Serializable
 data class GithubRepoInfo(
@@ -54,8 +58,8 @@ object GithubRepoInfoService {
             .build()
     }
 
-    private val cacheFile: java.io.File by lazy {
-        java.io.File(com.intellij.openapi.application.PathManager.getSystemPath(), "deplens/github_repo_cache.json").apply {
+    private val cacheFile: File by lazy {
+        File(PathManager.getSystemPath(), "deplens/github_repo_cache.json").apply {
             parentFile.mkdirs()
         }
     }

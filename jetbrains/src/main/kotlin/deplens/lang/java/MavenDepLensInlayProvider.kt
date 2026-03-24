@@ -9,8 +9,8 @@ import com.intellij.openapi.project.DumbAware
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.xml.XmlTag
-import deplens.utils.GithubInlayUtils
-import deplens.utils.MavenRepoResolver
+import deplens.utils.inlay.GithubInlayUtils
+import deplens.utils.resolver.MavenRepoResolver
 
 class MavenDepLensInlayProvider : InlayHintsProvider, DumbAware {
 

@@ -1,0 +1,12 @@
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <codeInsight.declarativeInlayProvider
+                implementationClass="deplens.lang.java.MavenDepLensInlayProvider"
+                language="XML"
+                isEnabledByDefault="true"
+                group="OTHER_GROUP"
+                providerId="deplens.inlay.maven"
+                nameKey="pluginName"
+                bundle="messages.DepLensBundle"/>
+    </extensions>
+</idea-plugin>

@@ -1,0 +1,12 @@
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <codeInsight.declarativeInlayProvider
+                implementationClass="deplens.lang.java.KotlinDepLensInlayProvider"
+                language="kotlin"
+                isEnabledByDefault="true"
+                group="OTHER_GROUP"
+                providerId="deplens.inlay.kotlin"
+                nameKey="pluginName"
+                bundle="messages.DepLensBundle"/>
+    </extensions>
+</idea-plugin>

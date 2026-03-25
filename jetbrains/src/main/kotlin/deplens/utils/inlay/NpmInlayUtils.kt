@@ -1,13 +1,13 @@
 package deplens.utils.inlay
 
 import com.intellij.codeInsight.hints.declarative.InlayTreeSink
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.psi.PsiFile
 import deplens.common.I18nKey
 import deplens.common.Result
 import deplens.utils.service.GithubRepoInfoService
 import deplens.utils.I18n
+import deplens.utils.ProgressUtils
 import deplens.utils.service.NpmPkgInfoService
 import deplens.utils.UiUtils
 
@@ -20,7 +20,7 @@ object NpmInlayUtils {
 
         when (npmRes.result) {
             Result.NONE -> {
-                ApplicationManager.getApplication().executeOnPooledThread {
+                ProgressUtils.runBackground(file.project, "DepLens: Fetch npm $pkg") {
                     try {
                         NpmPkgInfoService.fetchPackageInfo(pkg) {
                             val npmRes = NpmPkgInfoService.getPackageInfo(pkg)
@@ -31,8 +31,13 @@ object NpmInlayUtils {
                                 if (repoKey != null) {
                                     val repoRes = GithubRepoInfoService.getRepoInfo(repoKey.owner, repoKey.repo)
                                     if (repoRes.result == Result.NONE) {
-                                        GithubRepoInfoService.fetchRepoInfo(repoKey.owner, repoKey.repo) {
-                                            UiUtils.refreshInlayHints(file)
+                                        ProgressUtils.runBackground(
+                                            file.project,
+                                            "DepLens: Fetch GitHub ${repoKey.owner}/${repoKey.repo}"
+                                        ) {
+                                            GithubRepoInfoService.fetchRepoInfo(repoKey.owner, repoKey.repo) {
+                                                UiUtils.refreshInlayHints(file)
+                                            }
                                         }
                                     }
                                 }
@@ -56,7 +61,10 @@ object NpmInlayUtils {
 
         val displayText = when (repoRes.result) {
             Result.NONE -> {
-                ApplicationManager.getApplication().executeOnPooledThread {
+                ProgressUtils.runBackground(
+                    file.project,
+                    "DepLens: Fetch GitHub ${repoKey.owner}/${repoKey.repo}"
+                ) {
                     GithubRepoInfoService.fetchRepoInfo(repoKey.owner, repoKey.repo) {
                         UiUtils.refreshInlayHints(file)
                     }

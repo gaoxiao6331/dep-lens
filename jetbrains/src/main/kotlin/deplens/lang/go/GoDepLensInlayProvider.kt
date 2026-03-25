@@ -6,7 +6,6 @@ import com.intellij.codeInsight.hints.declarative.InlayHintsCollector
 import com.intellij.codeInsight.hints.declarative.InlayHintsProvider
 import com.intellij.codeInsight.hints.declarative.InlayTreeSink
 import com.intellij.codeInsight.hints.declarative.SharedBypassCollector
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.project.DumbAware
@@ -19,6 +18,7 @@ import deplens.utils.service.RepoKey
 import deplens.common.Result
 import deplens.common.I18nKey
 import deplens.utils.I18n
+import deplens.utils.ProgressUtils
 
 
 class GoDepLensInlayProvider : InlayHintsProvider, DumbAware {
@@ -84,19 +84,17 @@ class GoDepLensInlayProvider : InlayHintsProvider, DumbAware {
 
                 if (res.result == Result.NONE) {
 
-                    ApplicationManager.getApplication().executeOnPooledThread {
-
+                    ProgressUtils.runBackground(
+                        file.project,
+                        "DepLens: Fetch GitHub ${repoKey.owner}/${repoKey.repo}"
+                    ) {
                         try {
-
                             GithubRepoInfoService
                                 .fetchRepoInfo(repoKey.owner, repoKey.repo) {
                                     UiUtils.refreshInlayHints(file)
                                 }
-
                         } catch (e: Exception) {
-
                             LOG.warn("Failed to load repo info for $repoKey", e)
-
                         }
                     }
                 }

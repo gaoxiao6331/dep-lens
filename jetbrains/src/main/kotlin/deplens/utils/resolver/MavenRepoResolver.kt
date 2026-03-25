@@ -9,11 +9,7 @@ object MavenRepoResolver {
         if (groupId.isNullOrBlank() || artifactId.isNullOrBlank()) return null
 
         val resolvedVersion = resolveLocalVersion(groupId, artifactId, version) ?: return null
-        val pom = localPomFile(groupId, artifactId, resolvedVersion) ?: return null
-        if (!pom.exists()) return null
-
-        val content = runCatching { pom.readText() }.getOrNull() ?: return null
-        return extractGithubRepoKey(content)
+        return resolveRepoFromPom(groupId, artifactId, resolvedVersion, 0)
     }
 
     fun repoKeyFromResolvedPath(path: String?): RepoKey? {
@@ -79,7 +75,42 @@ object MavenRepoResolver {
         return File(home, ".m2/repository")
     }
 
+    private fun resolveRepoFromPom(groupId: String, artifactId: String, version: String, depth: Int): RepoKey? {
+        if (depth > 6) return null
+
+        val pom = localPomFile(groupId, artifactId, version) ?: return null
+        if (!pom.exists()) return null
+
+        val content = runCatching { pom.readText() }.getOrNull() ?: return null
+        val direct = extractGithubRepoKey(content)
+        if (direct != null) return direct
+
+        val parent = extractParentCoords(content) ?: return null
+        if (parent.groupId.contains('$') || parent.artifactId.contains('$') || parent.version.contains('$')) return null
+
+        return resolveRepoFromPom(parent.groupId, parent.artifactId, parent.version, depth + 1)
+    }
+
     private fun extractGithubRepoKey(text: String): RepoKey? {
+        val scmBlock = Regex("<scm>.*?</scm>", RegexOption.DOT_MATCHES_ALL)
+            .find(text)
+            ?.value
+
+        if (scmBlock != null) {
+            val scmMatch = extractGithubRepoKeyFromText(scmBlock)
+            if (scmMatch != null) return scmMatch
+        }
+
+        val url = Regex("<url>([^<]+)</url>").find(text)?.groupValues?.get(1)?.trim()
+        if (!url.isNullOrBlank()) {
+            val urlMatch = extractGithubRepoKeyFromText(url)
+            if (urlMatch != null) return urlMatch
+        }
+
+        return extractGithubRepoKeyFromText(text)
+    }
+
+    private fun extractGithubRepoKeyFromText(text: String): RepoKey? {
         val match = Regex("github\\.com[:/]+([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)")
             .find(text) ?: return null
 
@@ -87,5 +118,21 @@ object MavenRepoResolver {
         val repo = match.groupValues[2].removeSuffix(".git")
         if (owner.isBlank() || repo.isBlank()) return null
         return RepoKey(owner, repo)
+    }
+
+    private data class ParentCoords(val groupId: String, val artifactId: String, val version: String)
+
+    private fun extractParentCoords(text: String): ParentCoords? {
+        val parentBlock = Regex("<parent>.*?</parent>", RegexOption.DOT_MATCHES_ALL)
+            .find(text)
+            ?.value
+            ?: return null
+
+        val groupId = Regex("<groupId>([^<]+)</groupId>").find(parentBlock)?.groupValues?.get(1)?.trim()
+        val artifactId = Regex("<artifactId>([^<]+)</artifactId>").find(parentBlock)?.groupValues?.get(1)?.trim()
+        val version = Regex("<version>([^<]+)</version>").find(parentBlock)?.groupValues?.get(1)?.trim()
+
+        if (groupId.isNullOrBlank() || artifactId.isNullOrBlank() || version.isNullOrBlank()) return null
+        return ParentCoords(groupId, artifactId, version)
     }
 }

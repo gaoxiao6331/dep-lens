@@ -21,8 +21,6 @@ object ProgressUtils {
             override fun run(indicator: ProgressIndicator) {
                 indicator.isIndeterminate = true
                 indicator.text = title
-                // Ensure the task is visible in the status bar even for very fast requests.
-                Thread.sleep(50)
                 action(indicator)
             }
         }.queue()

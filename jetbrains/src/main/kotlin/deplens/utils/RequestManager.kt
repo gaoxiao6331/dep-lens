@@ -32,4 +32,12 @@ class RequestManager {
         val expireTimes = (failed[key] ?: emptyList()) + (now + failedExpireTime)
         failed[key] = expireTimes
     }
+
+    fun getFailureCount(key: String): Int {
+        val now = System.currentTimeMillis()
+        val items = failed[key]?.filter { expireTime -> expireTime > now } ?: return 0
+        return items.size
+    }
+
+    fun hasFailure(key: String): Boolean = getFailureCount(key) > 0
 }

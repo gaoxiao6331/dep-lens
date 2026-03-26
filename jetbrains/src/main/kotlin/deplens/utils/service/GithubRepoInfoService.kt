@@ -188,6 +188,7 @@ object GithubRepoInfoService {
         val existing = runningRequests[key]
         if (existing != null && !existing.isCanceled()) {
             LOG.debug("Request already running: $key")
+            onFinish?.invoke()
             return
         }
 
@@ -242,10 +243,9 @@ object GithubRepoInfoService {
 
             LOG.info("[请求成功] $key, 星数: ${repoInfo.stars}, 更新日期: ${repoInfo.updatedDate}")
 
-            onFinish?.invoke()
-
             cache[key] = repoInfo
             saveCacheToDiskAsync()
+            onFinish?.invoke()
 
         } catch (e: Exception) {
 

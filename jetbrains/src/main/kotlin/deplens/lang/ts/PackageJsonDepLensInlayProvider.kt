@@ -33,8 +33,6 @@ class PackageJsonDepLensInlayProvider : InlayHintsProvider, DumbAware {
 
             override fun collectFromElement(element: PsiElement, sink: InlayTreeSink) {
 
-                LOG.warn("xxxx: ${element.text} ${element.node.elementType} ${element is JsonProperty}")
-
                 // 只处理 JsonProperty
                 if (element !is JsonProperty) return
 

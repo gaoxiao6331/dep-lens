@@ -37,10 +37,10 @@ object GithubInlayUtils {
                         LOG.warn("Failed to load repo info for $repoKey", e)
                     }
                 }
-                I18n.message(I18nKey.loading)
+                I18n.message(I18nKey.loadingGithub)
             }
             Result.SUCCESS -> "⭐ ${repoRes.data?.stars ?: 0} • ${I18n.message(I18nKey.lastUpdated)} ${repoRes.data?.updatedDate ?: "N/A"}"
-            else -> I18n.message(I18nKey.failedToLoad)
+            else -> I18n.message(I18nKey.failedGithub)
         }
     }
 }

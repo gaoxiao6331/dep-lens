@@ -15,6 +15,7 @@ import java.util.concurrent.TimeUnit
 import deplens.common.RETRY_DELAY_MILLIS
 import deplens.common.Result
 import deplens.common.ResultWrapper
+import deplens.utils.RequestManager
 import kotlin.collections.iterator
 
 @Serializable
@@ -66,6 +67,7 @@ object NpmPkgInfoService {
     private val cache = ConcurrentHashMap<String, NpmPackageInfo>()
     private val runningRequests = ConcurrentHashMap<String, Call>()
     private val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(ZoneId.systemDefault())
+    private val requestManager = RequestManager()
 
     init {
         loadCacheFromDisk()
@@ -110,7 +112,9 @@ object NpmPkgInfoService {
 
     fun getCacheKey(packageName: String): String = packageName
 
-    fun isFailure(packageName: String): Boolean = false
+    fun isFailure(packageName: String): Boolean {
+        return !cache.containsKey(packageName) && !requestManager.shouldRequest(packageName)
+    }
 
     fun getPackageInfo(packageName: String): ResultWrapper<NpmPackageInfo> {
         val info = cache[packageName]
@@ -131,6 +135,12 @@ object NpmPkgInfoService {
         val existing = runningRequests[packageName]
         if (existing != null && !existing.isCanceled()) {
             LOG.debug("Request already running: $packageName")
+            return
+        }
+
+        if (!requestManager.shouldRequest(packageName)) {
+            LOG.debug("should not request: $packageName")
+            onFinish?.invoke()
             return
         }
 
@@ -177,17 +187,20 @@ object NpmPkgInfoService {
             LOG.info("[请求成功] $packageName, 下载量: ${packageInfo.weeklyDownloads}, github: ${packageInfo.githubUrl}")
 
             onFinish?.invoke()
-
         } catch (e: Exception) {
             LOG.warn("NPM request error: $packageName", e)
-
-            // 3 秒后重试
-            AppExecutorUtil.getAppScheduledExecutorService().schedule(
-                { fetchPackageInfo(packageName) },
-                RETRY_DELAY_MILLIS,
-                TimeUnit.MILLISECONDS
-            )
         } finally {
+
+            if (!cache.containsKey(packageName)) {
+                requestManager.updateFailed(packageName)
+
+                // 3 秒后重试
+                AppExecutorUtil.getAppScheduledExecutorService().schedule(
+                    { fetchPackageInfo(packageName, onFinish) },
+                    RETRY_DELAY_MILLIS,
+                    TimeUnit.MILLISECONDS
+                )
+            }
             runningRequests.remove(packageName)
         }
     }

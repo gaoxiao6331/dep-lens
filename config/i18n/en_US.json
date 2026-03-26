@@ -1,6 +1,12 @@
 {
     "pluginName": "Dep Lens",
     "loading": "loading...",
+    "loadingNpmMeta": "loading npm metadata...",
+    "loadingGithub": "loading github...",
     "lastUpdated": "last updated at",
-    "failedToLoad": "failed to load"
+    "failedToLoad": "failed to load",
+    "failedNpmMeta": "npm metadata failed",
+    "failedGithub": "github info failed",
+    "noGithubUrl": "no github url",
+    "invalidGithubUrl": "invalid github url"
 }

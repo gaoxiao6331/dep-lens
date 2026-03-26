@@ -1,6 +1,12 @@
 {
     "pluginName": "Dep Lens",
     "loading": "加载中...",
+    "loadingNpmMeta": "正在加载 npm 元数据...",
+    "loadingGithub": "正在加载 GitHub 信息...",
     "lastUpdated": "最后更新时间",
-    "failedToLoad": "加载失败"
+    "failedToLoad": "加载失败",
+    "failedNpmMeta": "npm 元数据加载失败",
+    "failedGithub": "GitHub 信息加载失败",
+    "noGithubUrl": "没有 GitHub 地址",
+    "invalidGithubUrl": "GitHub 地址无效"
 }

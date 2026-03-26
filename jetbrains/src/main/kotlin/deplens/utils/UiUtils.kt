@@ -29,7 +29,7 @@ object UiUtils {
 
             PsiDocumentManager
                 .getInstance(project)
-                .reparseFiles(listOf(vFile), false)
+                .reparseFiles(listOf(vFile), true)
 
         }, ModalityState.NON_MODAL)
     }

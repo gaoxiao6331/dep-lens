@@ -19,10 +19,13 @@ object NpmInlayUtils {
         val npmRes = NpmPkgInfoService.getPackageInfo(pkg)
 
         when (npmRes.result) {
+            // TOOD 处理pending
             Result.NONE -> {
                 ProgressUtils.runBackground(file.project, "DepLens: Fetch npm $pkg") {
                     try {
                         NpmPkgInfoService.fetchPackageInfo(pkg) {
+
+                            // 请求完npm元数据
                             val npmRes = NpmPkgInfoService.getPackageInfo(pkg)
 
                             if (npmRes.result == Result.SUCCESS) {
@@ -36,26 +39,46 @@ object NpmInlayUtils {
                                             "DepLens: Fetch GitHub ${repoKey.owner}/${repoKey.repo}"
                                         ) {
                                             GithubRepoInfoService.fetchRepoInfo(repoKey.owner, repoKey.repo) {
+
                                                 UiUtils.refreshInlayHints(file)
                                             }
                                         }
                                     }
+                                } else {
+                                    LOG.warn("Failed to get repo key for $pkg")
                                 }
+                            } else {
+                                // 没有拿到元数据，插入错误
                             }
                         }
                     } catch (e: Exception) {
                         LOG.warn("Failed to load repo info for $pkg", e)
                     }
                 }
+                UiUtils.addInlay(sink, offset, I18n.message(I18nKey.loadingNpmMeta))
                 return
             }
             Result.SUCCESS -> {}
-            else -> return
+            else -> {
+                UiUtils.addInlay(sink, offset, I18n.message(I18nKey.failedNpmMeta))
+                return
+            }
         }
 
-        val npmInfo = npmRes.data ?: return
-        val url = npmInfo.githubUrl ?: return
-        val repoKey = GithubRepoInfoService.getRepoKey(url) ?: return
+        val npmInfo = npmRes.data ?: run {
+            UiUtils.addInlay(sink, offset, I18n.message(I18nKey.failedNpmMeta))
+            return
+        }
+        val url = npmInfo.githubUrl
+        if (url.isNullOrBlank()) {
+            UiUtils.addInlay(sink, offset, I18n.message(I18nKey.noGithubUrl))
+            return
+        }
+        val repoKey = GithubRepoInfoService.getRepoKey(url)
+        if (repoKey == null) {
+            UiUtils.addInlay(sink, offset, I18n.message(I18nKey.invalidGithubUrl))
+            return
+        }
 
         val repoRes = GithubRepoInfoService.getRepoInfo(repoKey.owner, repoKey.repo)
 
@@ -69,10 +92,10 @@ object NpmInlayUtils {
                         UiUtils.refreshInlayHints(file)
                     }
                 }
-                I18n.message(I18nKey.loading)
+                I18n.message(I18nKey.loadingGithub)
             }
             Result.SUCCESS -> "⭐ ${repoRes.data?.stars ?: 0} • ${I18n.message(I18nKey.lastUpdated)} ${repoRes.data?.updatedDate ?: "N/A"}"
-            else -> I18n.message(I18nKey.failedToLoad)
+            else -> I18n.message(I18nKey.failedGithub)
         }
 
         UiUtils.addInlay(sink, offset, displayText)

@@ -125,13 +125,40 @@ object GithubRepoInfoService {
     }
 
     fun getRepoKey(path: String): RepoKey? {
-        val regex = Regex("""^(?:https://)?github\.com/(.*)""")
-        val result = regex.find(path) ?: return null
-        val p = result.groupValues[1]
-        val parts = p.split("/")
-        if (parts.size < 2) return null
+        val raw = path.trim()
+        if (raw.isBlank()) return null
 
-        return RepoKey(parts[0], parts[1])
+        val cleaned = raw
+            .removePrefix("git+")
+            .removePrefix("git://")
+            .removePrefix("ssh://")
+
+        if (cleaned.startsWith("github:")) {
+            val rest = cleaned.removePrefix("github:").trimStart('/')
+            val parts = rest.split("/").filter { it.isNotBlank() }
+            if (parts.size < 2) return null
+            val owner = parts[0]
+            val repo = normalizeRepoName(parts[1])
+            if (owner.isBlank() || repo.isBlank()) return null
+            return RepoKey(owner, repo)
+        }
+
+        val match = Regex("github\\.com[:/]+([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)")
+            .find(cleaned)
+            ?: return null
+
+        val owner = match.groupValues[1]
+        val repo = normalizeRepoName(match.groupValues[2])
+        if (owner.isBlank() || repo.isBlank()) return null
+        return RepoKey(owner, repo)
+    }
+
+    private fun normalizeRepoName(value: String): String {
+        return value
+            .substringBefore('#')
+            .substringBefore('?')
+            .removeSuffix(".git")
+            .trim()
     }
 
     fun getRepoInfo(owner: String, repo: String): ResultWrapper<GithubRepoInfo> {

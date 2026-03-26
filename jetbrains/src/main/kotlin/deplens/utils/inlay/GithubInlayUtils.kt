@@ -39,6 +39,7 @@ object GithubInlayUtils {
                 }
                 I18n.message(I18nKey.loadingGithub)
             }
+            Result.PENDING -> I18n.message(I18nKey.loadingGithub)
             Result.SUCCESS -> "⭐ ${repoRes.data?.stars ?: 0} • ${I18n.message(I18nKey.lastUpdated)} ${repoRes.data?.updatedDate ?: "N/A"}"
             else -> I18n.message(I18nKey.failedGithub)
         }

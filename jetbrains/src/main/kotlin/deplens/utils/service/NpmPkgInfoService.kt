@@ -116,6 +116,13 @@ object NpmPkgInfoService {
         return !cache.containsKey(packageName) && !requestManager.shouldRequest(packageName)
     }
 
+    fun hasFailure(packageName: String): Boolean = requestManager.hasFailure(packageName)
+
+    fun isRequestRunning(packageName: String): Boolean {
+        val running = runningRequests[packageName]
+        return running != null && !running.isCanceled()
+    }
+
     fun getPackageInfo(packageName: String): ResultWrapper<NpmPackageInfo> {
         val info = cache[packageName]
         if (info != null) {
@@ -128,6 +135,10 @@ object NpmPkgInfoService {
                 return ResultWrapper(Result.SUCCESS, info)
             }
         }
+        val running = runningRequests[packageName]
+        if (running != null && !running.isCanceled()) {
+            return ResultWrapper(Result.PENDING, null)
+        }
         return if (isFailure(packageName)) ResultWrapper(Result.FAILURE, null) else ResultWrapper(Result.NONE, null)
     }
 
@@ -135,6 +146,7 @@ object NpmPkgInfoService {
         val existing = runningRequests[packageName]
         if (existing != null && !existing.isCanceled()) {
             LOG.debug("Request already running: $packageName")
+            onFinish?.invoke()
             return
         }
 

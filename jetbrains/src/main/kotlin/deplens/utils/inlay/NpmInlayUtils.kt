@@ -19,8 +19,11 @@ object NpmInlayUtils {
         val npmRes = NpmPkgInfoService.getPackageInfo(pkg)
 
         when (npmRes.result) {
-            // TOOD 处理pending
             Result.NONE -> {
+                if (NpmPkgInfoService.hasFailure(pkg) && !NpmPkgInfoService.isRequestRunning(pkg)) {
+                    UiUtils.addInlay(sink, offset, I18n.message(I18nKey.failedNpmMeta))
+                    return
+                }
                 ProgressUtils.runBackground(file.project, "DepLens: Fetch npm $pkg") {
                     try {
                         NpmPkgInfoService.fetchPackageInfo(pkg) {
@@ -59,6 +62,10 @@ object NpmInlayUtils {
                 return
             }
             Result.SUCCESS -> {}
+            Result.PENDING -> {
+                UiUtils.addInlay(sink, offset, I18n.message(I18nKey.loadingNpmMeta))
+                return
+            }
             else -> {
                 UiUtils.addInlay(sink, offset, I18n.message(I18nKey.failedNpmMeta))
                 return
@@ -94,6 +101,7 @@ object NpmInlayUtils {
                 }
                 I18n.message(I18nKey.loadingGithub)
             }
+            Result.PENDING -> I18n.message(I18nKey.loadingGithub)
             Result.SUCCESS -> "⭐ ${repoRes.data?.stars ?: 0} • ${I18n.message(I18nKey.lastUpdated)} ${repoRes.data?.updatedDate ?: "N/A"}"
             else -> I18n.message(I18nKey.failedGithub)
         }

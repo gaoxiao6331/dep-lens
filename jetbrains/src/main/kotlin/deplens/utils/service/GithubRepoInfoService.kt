@@ -174,6 +174,10 @@ object GithubRepoInfoService {
                 return ResultWrapper(Result.SUCCESS, info)
             }
         }
+        val running = runningRequests[key]
+        if (running != null && !running.isCanceled()) {
+            return ResultWrapper(Result.PENDING, null)
+        }
 
         return when {
             isFailure(key) -> ResultWrapper(Result.FAILURE, null)

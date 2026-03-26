@@ -215,6 +215,8 @@ object GithubRepoInfoService {
 
             LOG.info("[请求成功] $key, 星数: ${repoInfo.stars}, 更新日期: ${repoInfo.updatedDate}")
 
+            onFinish?.invoke()
+
             cache[key] = repoInfo
             saveCacheToDiskAsync()
 

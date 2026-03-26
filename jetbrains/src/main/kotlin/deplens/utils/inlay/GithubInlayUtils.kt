@@ -16,9 +16,14 @@ object GithubInlayUtils {
     private val LOG = logger<GithubInlayUtils>()
 
     fun addRepoInlay(file: PsiFile, sink: InlayTreeSink, repoKey: RepoKey, offset: Int) {
+        val displayText = getRepoDisplayText(file, repoKey)
+        UiUtils.addInlay(sink, offset, displayText)
+    }
+
+    fun getRepoDisplayText(file: PsiFile, repoKey: RepoKey): String {
         val repoRes = GithubRepoInfoService.getRepoInfo(repoKey.owner, repoKey.repo)
 
-        val displayText = when (repoRes.result) {
+        return when (repoRes.result) {
             Result.NONE -> {
                 ProgressUtils.runBackground(
                     file.project,
@@ -37,7 +42,5 @@ object GithubInlayUtils {
             Result.SUCCESS -> "⭐ ${repoRes.data?.stars ?: 0} • ${I18n.message(I18nKey.lastUpdated)} ${repoRes.data?.updatedDate ?: "N/A"}"
             else -> I18n.message(I18nKey.failedToLoad)
         }
-
-        UiUtils.addInlay(sink, offset, displayText)
     }
 }

@@ -6,9 +6,9 @@ import com.intellij.codeInsight.hints.declarative.InlayTreeSink
 import com.intellij.codeInsight.hints.declarative.SharedBypassCollector
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.project.DumbAware
+import com.intellij.psi.JavaPsiFacade
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
-import com.intellij.psi.PsiMember
 import deplens.utils.inlay.GithubInlayUtils
 import deplens.utils.resolver.MavenRepoResolver
 import org.jetbrains.kotlin.psi.KtFile
@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.psi.KtImportDirective
 class KotlinDepLensInlayProvider : InlayHintsProvider, DumbAware {
 
     override fun createCollector(file: PsiFile, editor: Editor): InlayHintsCollector {
+
         if (file !is KtFile) {
             return object : SharedBypassCollector {
                 override fun collectFromElement(element: PsiElement, sink: InlayTreeSink) = Unit
@@ -34,21 +35,16 @@ class KotlinDepLensInlayProvider : InlayHintsProvider, DumbAware {
             override fun collectFromElement(element: PsiElement, sink: InlayTreeSink) {
                 if (element !is KtImportDirective) return
 
-                val resolved = element.importedReference
-                    ?.references
-                    ?.firstNotNullOfOrNull { it.resolve() }
+                val fqName = element.importedFqName?.asString() ?: return
 
-                val resolvedClass = when (resolved) {
-                    is com.intellij.psi.PsiClass -> resolved
-                    is PsiMember -> resolved.containingClass
-                    else -> null
-                }
+                val psiClass = JavaPsiFacade.getInstance(file.project)
+                    .findClass(fqName, file.resolveScope) ?: return
 
-                val resolvedPath = resolvedClass?.containingFile?.virtualFile?.path
+                val resolvedPath = psiClass.containingFile?.virtualFile?.path ?: return
+
                 val repoKey = MavenRepoResolver.repoKeyFromResolvedPath(resolvedPath) ?: return
-                val offset = element.textRange.endOffset
 
-                GithubInlayUtils.addRepoInlay(file, sink, repoKey, offset)
+                GithubInlayUtils.addRepoInlay(file, sink, repoKey, element.textRange.endOffset)
             }
         }
     }

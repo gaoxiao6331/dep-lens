@@ -14,7 +14,10 @@ object MavenRepoResolver {
 
     fun repoKeyFromResolvedPath(path: String?): RepoKey? {
         if (path.isNullOrBlank()) return null
+        return repoKeyFromMavenLocalPath(path) ?: repoKeyFromGradleCachePath(path)
+    }
 
+    private fun repoKeyFromMavenLocalPath(path: String): RepoKey? {
         val marker = "/.m2/repository/"
         val idx = path.indexOf(marker)
         if (idx < 0) return null
@@ -29,6 +32,51 @@ object MavenRepoResolver {
         val groupParts = parts.subList(0, parts.size - 3)
         val groupId = groupParts.joinToString(".")
         if (groupId.isBlank() || artifactId.isBlank() || version.isBlank()) return null
+
+        return repoKeyFromGroupArtifact(groupId, artifactId, version)
+    }
+
+    private fun repoKeyFromGradleCachePath(path: String): RepoKey? {
+        val marker = "/.gradle/caches/modules-2/files-2.1/"
+        val idx = path.indexOf(marker)
+        if (idx < 0) return null
+
+        val after = path.substring(idx + marker.length)
+        val jarPart = after.substringBefore('!')
+        val parts = jarPart.split('/').filter { it.isNotBlank() }
+        if (parts.size < 4) return null
+
+        val groupId = parts[0]
+        val artifactId = parts[1]
+        val version = parts[2]
+        val hash = parts[3]
+        if (groupId.isBlank() || artifactId.isBlank() || version.isBlank()) return null
+
+        val base = gradleCacheBase() ?: return null
+        val dir = File(base, "$groupId/$artifactId/$version/$hash")
+        val pom = File(dir, "$artifactId-$version.pom")
+
+        val pomFile = when {
+            pom.exists() -> pom
+            else -> findPomInGradleCacheDir(base, groupId, artifactId, version)
+        }
+
+        if (pomFile != null && pomFile.exists()) {
+            val content = runCatching { pomFile.readText() }.getOrNull() ?: return null
+            val direct = extractGithubRepoKey(content)
+            if (direct != null) return direct
+
+            val parent = extractParentCoords(content) ?: return null
+            if (parent.groupId.contains('$') || parent.artifactId.contains('$') || parent.version.contains('$')) return null
+
+            return resolveRepoFromPom(parent.groupId, parent.artifactId, parent.version, 0)
+        }
+
+        val jar = File(dir, "$artifactId-$version.jar")
+        if (jar.exists()) {
+            val fromJar = extractGithubRepoKeyFromJar(jar)
+            if (fromJar != null) return fromJar
+        }
 
         return repoKeyFromGroupArtifact(groupId, artifactId, version)
     }
@@ -73,6 +121,50 @@ object MavenRepoResolver {
     private fun localRepoBase(): File? {
         val home = System.getProperty("user.home") ?: return null
         return File(home, ".m2/repository")
+    }
+
+    private fun gradleCacheBase(): File? {
+        val home = System.getProperty("user.home") ?: return null
+        return File(home, ".gradle/caches/modules-2/files-2.1")
+    }
+
+    private fun findPomInGradleCacheDir(
+        base: File,
+        groupId: String,
+        artifactId: String,
+        version: String
+    ): File? {
+        val versionDir = File(base, "$groupId/$artifactId/$version")
+        val hashDirs = versionDir.listFiles()?.filter { it.isDirectory } ?: return null
+        for (hashDir in hashDirs) {
+            val pom = File(hashDir, "$artifactId-$version.pom")
+            if (pom.exists()) return pom
+        }
+        return null
+    }
+
+    private fun extractGithubRepoKeyFromJar(jar: File): RepoKey? {
+        return runCatching {
+            java.util.zip.ZipFile(jar).use { zip ->
+                val entries = zip.entries().asSequence().toList()
+                val pomXmlEntry = entries.firstOrNull {
+                    it.name.startsWith("META-INF/maven/") && it.name.endsWith("/pom.xml")
+                }
+                if (pomXmlEntry != null) {
+                    val text = zip.getInputStream(pomXmlEntry).bufferedReader().use { it.readText() }
+                    extractGithubRepoKey(text)?.let { return it }
+                    val parent = extractParentCoords(text)
+                    if (parent != null &&
+                        !parent.groupId.contains('$') &&
+                        !parent.artifactId.contains('$') &&
+                        !parent.version.contains('$')
+                    ) {
+                        return resolveRepoFromPom(parent.groupId, parent.artifactId, parent.version, 0)
+                    }
+                }
+                null
+            }
+        }.getOrNull()
     }
 
     private fun resolveRepoFromPom(groupId: String, artifactId: String, version: String, depth: Int): RepoKey? {

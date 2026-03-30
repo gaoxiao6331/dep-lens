@@ -192,7 +192,7 @@ object GithubRepoInfoService {
         val existing = runningRequests[key]
         if (existing != null && !existing.isCanceled()) {
             LOG.debug("Request already running: $key")
-            onFinish?.invoke()
+//            onFinish?.invoke()
             return
         }
 
@@ -223,6 +223,7 @@ object GithubRepoInfoService {
         val call = client.newCall(request)
 
         runningRequests[key] = call
+        var shouldNotify = false
 
         try {
 
@@ -249,7 +250,7 @@ object GithubRepoInfoService {
 
             cache[key] = repoInfo
             saveCacheToDiskAsync()
-            onFinish?.invoke()
+            shouldNotify = true
 
         } catch (e: Exception) {
 
@@ -260,6 +261,9 @@ object GithubRepoInfoService {
 
             if(!cache.containsKey(key)) {
                 requestManager.updateFailed(key)
+                if (!requestManager.shouldRequest(key)) {
+                    shouldNotify = true
+                }
 
                 // 3s后自动重试
                 AppExecutorUtil.getAppScheduledExecutorService().schedule(
@@ -272,6 +276,9 @@ object GithubRepoInfoService {
             }
 
             runningRequests.remove(key)
+            if (shouldNotify) {
+                onFinish?.invoke()
+            }
 
         }
     }

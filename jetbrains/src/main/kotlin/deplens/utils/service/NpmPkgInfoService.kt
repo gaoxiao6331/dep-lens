@@ -146,7 +146,7 @@ object NpmPkgInfoService {
         val existing = runningRequests[packageName]
         if (existing != null && !existing.isCanceled()) {
             LOG.debug("Request already running: $packageName")
-            onFinish?.invoke()
+//            onFinish?.invoke()
             return
         }
 
@@ -164,6 +164,7 @@ object NpmPkgInfoService {
 
         val call = httpClient.newCall(registryRequest)
         runningRequests[packageName] = call
+        var shouldNotify = false
 
         try {
             val response = call.execute()
@@ -195,16 +196,18 @@ object NpmPkgInfoService {
 
             cache[packageName] = packageInfo
             saveCacheToDiskAsync()
+            shouldNotify = true
 
             LOG.info("[请求成功] $packageName, 下载量: ${packageInfo.weeklyDownloads}, github: ${packageInfo.githubUrl}")
-
-            onFinish?.invoke()
         } catch (e: Exception) {
             LOG.warn("NPM request error: $packageName", e)
         } finally {
 
             if (!cache.containsKey(packageName)) {
                 requestManager.updateFailed(packageName)
+                if (!requestManager.shouldRequest(packageName)) {
+                    shouldNotify = true
+                }
 
                 // 3 秒后重试
                 AppExecutorUtil.getAppScheduledExecutorService().schedule(
@@ -214,6 +217,9 @@ object NpmPkgInfoService {
                 )
             }
             runningRequests.remove(packageName)
+            if (shouldNotify) {
+                onFinish?.invoke()
+            }
         }
     }
 

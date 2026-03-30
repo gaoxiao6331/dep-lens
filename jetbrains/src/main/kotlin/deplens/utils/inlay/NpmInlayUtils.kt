@@ -16,6 +16,8 @@ object NpmInlayUtils {
     private val LOG = logger<NpmInlayUtils>()
 
     fun addNpmDepInlay(file: PsiFile, sink: InlayTreeSink, pkg: String, offset: Int) {
+        val project = file.project
+        val vFile = file.virtualFile
         val npmRes = NpmPkgInfoService.getPackageInfo(pkg)
 
         when (npmRes.result) {
@@ -27,6 +29,7 @@ object NpmInlayUtils {
                 ProgressUtils.runBackground(file.project, "DepLens: Fetch npm $pkg") {
                     try {
                         NpmPkgInfoService.fetchPackageInfo(pkg) {
+                            var dispatchedGithubFetch = false
 
                             // 请求完npm元数据
                             val npmRes = NpmPkgInfoService.getPackageInfo(pkg)
@@ -37,13 +40,15 @@ object NpmInlayUtils {
                                 if (repoKey != null) {
                                     val repoRes = GithubRepoInfoService.getRepoInfo(repoKey.owner, repoKey.repo)
                                     if (repoRes.result == Result.NONE) {
+                                        dispatchedGithubFetch = true
                                         ProgressUtils.runBackground(
                                             file.project,
                                             "DepLens: Fetch GitHub ${repoKey.owner}/${repoKey.repo}"
                                         ) {
                                             GithubRepoInfoService.fetchRepoInfo(repoKey.owner, repoKey.repo) {
-
-                                                UiUtils.refreshInlayHints(file)
+                                                if (vFile != null) {
+                                                    UiUtils.refreshInlayHints(project, vFile)
+                                                }
                                             }
                                         }
                                     }
@@ -52,6 +57,13 @@ object NpmInlayUtils {
                                 }
                             } else {
                                 // 没有拿到元数据，插入错误
+                            }
+
+                            // npm 请求结束后至少刷新一次，避免状态停留在 loading。
+                            if (!dispatchedGithubFetch) {
+                                if (vFile != null) {
+                                    UiUtils.refreshInlayHints(project, vFile)
+                                }
                             }
                         }
                     } catch (e: Exception) {
@@ -96,7 +108,9 @@ object NpmInlayUtils {
                     "DepLens: Fetch GitHub ${repoKey.owner}/${repoKey.repo}"
                 ) {
                     GithubRepoInfoService.fetchRepoInfo(repoKey.owner, repoKey.repo) {
-                        UiUtils.refreshInlayHints(file)
+                        if (vFile != null) {
+                            UiUtils.refreshInlayHints(project, vFile)
+                        }
                     }
                 }
                 I18n.message(I18nKey.loadingGithub)

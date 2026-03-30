@@ -5,8 +5,10 @@ import com.intellij.codeInsight.hints.declarative.InlineInlayPosition
 import com.intellij.codeInsight.hints.declarative.InlayTreeSink
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
+import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiFile
+import com.intellij.openapi.vfs.VirtualFile
 
 object UiUtils {
 
@@ -21,11 +23,13 @@ object UiUtils {
     }
 
     fun refreshInlayHints(file: PsiFile) {
-        val project = file.project
-        ApplicationManager.getApplication().invokeLater({
-            if (project.isDisposed || !file.isValid) return@invokeLater
+        val vFile = file.virtualFile ?: return
+        refreshInlayHints(file.project, vFile)
+    }
 
-            val vFile = file.virtualFile ?: return@invokeLater
+    fun refreshInlayHints(project: Project, vFile: VirtualFile) {
+        ApplicationManager.getApplication().invokeLater({
+            if (project.isDisposed || !vFile.isValid) return@invokeLater
 
             PsiDocumentManager
                 .getInstance(project)

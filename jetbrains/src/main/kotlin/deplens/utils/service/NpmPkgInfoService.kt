@@ -1,30 +1,19 @@
 package deplens.utils.service
 
-import com.intellij.openapi.application.PathManager
 import com.intellij.openapi.diagnostic.Logger
-import com.intellij.util.concurrency.AppExecutorUtil
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.*
-import java.io.File
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
-import deplens.common.RETRY_DELAY_MILLIS
-import deplens.common.Result
 import deplens.common.ResultWrapper
-import deplens.utils.RequestManager
-import kotlin.collections.iterator
 
 @Serializable
 data class NpmPackageInfo(
     val name: String,
     val weeklyDownloads: Int,
     val githubUrl: String?,
-    val fetchedAt: Long = System.currentTimeMillis()
-)
+    override val fetchedAt: Long = System.currentTimeMillis()
+) : CachedEntry
 
 @Serializable
 data class NpmRegistryResponse(
@@ -46,195 +35,66 @@ data class NpmDownloadsResponse(
     val packageName: String? = null
 )
 
-// TODO: 继承抽象类
-object NpmPkgInfoService {
+object NpmPkgInfoService : AbstractCachedRequestService<NpmPackageInfo>() {
 
-    private val LOG = Logger.getInstance(NpmPkgInfoService::class.java)
+    override val logger: Logger = Logger.getInstance(NpmPkgInfoService::class.java)
+    override val cacheFileName: String = "deplens/npm_package_cache.json"
+    override val dataSerializer = NpmPackageInfo.serializer()
+
     private val json = Json { ignoreUnknownKeys = true }
-    private val httpClient: OkHttpClient by lazy {
+    override val httpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .build()
     }
 
-    private val cacheFile: File by lazy {
-        File(PathManager.getSystemPath(), "deplens/npm_package_cache.json").apply {
-            parentFile.mkdirs()
-        }
-    }
-
-    private val cache = ConcurrentHashMap<String, NpmPackageInfo>()
-    private val runningRequests = ConcurrentHashMap<String, Call>()
-    private val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(ZoneId.systemDefault())
-    private val requestManager = RequestManager()
-
     init {
-        loadCacheFromDisk()
-    }
-
-    private fun loadCacheFromDisk() {
-        try {
-            if (cacheFile.exists()) {
-                val content = cacheFile.readText()
-                if (content.isNotBlank()) {
-                    val map = json.decodeFromString<Map<String, NpmPackageInfo>>(content)
-                    val now = System.currentTimeMillis()
-                    val threeDaysMillis = 3 * 24 * 60 * 60 * 1000L
-                    var hasExpired = false
-
-                    for ((k, v) in map) {
-                        if (now - v.fetchedAt > threeDaysMillis) {
-                            hasExpired = true
-                        } else {
-                            cache[k] = v
-                        }
-                    }
-
-                    if (hasExpired) saveCacheToDiskAsync()
-                }
-            }
-        } catch (e: Exception) {
-            LOG.warn("Failed to load npm package cache", e)
-        }
-    }
-
-    private fun saveCacheToDiskAsync() {
-        AppExecutorUtil.getAppExecutorService().execute {
-            try {
-                val content = json.encodeToString(cache.toMap())
-                cacheFile.writeText(content)
-            } catch (e: Exception) {
-                LOG.warn("Failed to save npm package cache", e)
-            }
-        }
+        initCache()
     }
 
     fun getCacheKey(packageName: String): String = packageName
 
-    fun isFailure(packageName: String): Boolean {
-        return !cache.containsKey(packageName) && !requestManager.shouldRequest(packageName)
-    }
-
-    fun hasFailure(packageName: String): Boolean = requestManager.hasFailure(packageName)
-
-    fun isRequestRunning(packageName: String): Boolean {
-        val running = runningRequests[packageName]
-        return running != null && !running.isCanceled()
-    }
-
-    fun getPackageInfo(packageName: String): ResultWrapper<NpmPackageInfo> {
-        val info = cache[packageName]
-        if (info != null) {
-            val now = System.currentTimeMillis()
-            val threeDaysMillis = 3 * 24 * 60 * 60 * 1000L
-            if (now - info.fetchedAt > threeDaysMillis) {
-                cache.remove(packageName)
-                saveCacheToDiskAsync()
-            } else {
-                return ResultWrapper(Result.SUCCESS, info)
-            }
-        }
-        val running = runningRequests[packageName]
-        if (running != null && !running.isCanceled()) {
-            return ResultWrapper(Result.PENDING, null)
-        }
-        return if (isFailure(packageName)) ResultWrapper(Result.FAILURE, null) else ResultWrapper(Result.NONE, null)
-    }
+    fun getPackageInfo(packageName: String): ResultWrapper<NpmPackageInfo> = getCachedInfo(packageName)
 
     fun fetchPackageInfo(packageName: String, onFinish: (() -> Unit)? = null) {
-        val existing = runningRequests[packageName]
-        if (existing != null && !existing.isCanceled()) {
-            LOG.debug("Request already running: $packageName")
-//            onFinish?.invoke()
-            return
-        }
+        fetchByKey(packageName, onFinish)
+    }
 
-        if (!requestManager.shouldRequest(packageName)) {
-            LOG.debug("should not request: $packageName")
-            onFinish?.invoke()
-            return
-        }
-
-        // 1. 获取 npm registry info
-        val registryRequest = Request.Builder()
-            .url("https://registry.npmjs.org/$packageName")
+    override fun createRequestCall(key: String): Call {
+        val request = Request.Builder()
+            .url("https://registry.npmjs.org/$key")
             .header("Accept", "application/json")
             .build()
+        return httpClient.newCall(request)
+    }
 
-        val call = httpClient.newCall(registryRequest)
-        runningRequests[packageName] = call
-        var shouldNotify = false
+    override fun parseResponseBody(key: String, body: String): NpmPackageInfo? {
+        val registryInfo = json.decodeFromString<NpmRegistryResponse>(body)
 
-        try {
-            val response = call.execute()
-            if (!response.isSuccessful) {
-                LOG.warn("NPM registry API failed: ${response.code}")
-                return
+        val downloadsRequest = Request.Builder()
+            .url("https://api.npmjs.org/downloads/point/last-week/$key")
+            .build()
+        val downloadsBody = httpClient.newCall(downloadsRequest).execute().use { downloadsResponse ->
+            if (!downloadsResponse.isSuccessful) {
+                logger.warn("NPM downloads API failed: ${downloadsResponse.code}")
+                return null
             }
-
-            val body = response.body?.string() ?: return
-            val registryInfo = json.decodeFromString<NpmRegistryResponse>(body)
-
-            // 2. 获取 npm 下载量（过去 7 天）
-            val downloadsRequest = Request.Builder()
-                .url("https://api.npmjs.org/downloads/point/last-week/$packageName")
-                .build()
-
-            val downloadsResponse = httpClient.newCall(downloadsRequest).execute()
-            val downloadsBody = downloadsResponse.body?.string() ?: return
-            val downloadsInfo = json.decodeFromString<NpmDownloadsResponse>(downloadsBody)
-
-            // git+https://github.com/Microsoft/vscode-extension-vscode.git
-            val githubUrl = registryInfo.repository?.url?.removePrefix("git+")?.removeSuffix(".git")
-
-            val packageInfo = NpmPackageInfo(
-                name = registryInfo.name,
-                weeklyDownloads = downloadsInfo.downloads,
-                githubUrl = githubUrl
-            )
-
-            cache[packageName] = packageInfo
-            saveCacheToDiskAsync()
-            shouldNotify = true
-
-            LOG.info("[请求成功] $packageName, 下载量: ${packageInfo.weeklyDownloads}, github: ${packageInfo.githubUrl}")
-        } catch (e: Exception) {
-            LOG.warn("NPM request error: $packageName", e)
-        } finally {
-
-            if (!cache.containsKey(packageName)) {
-                requestManager.updateFailed(packageName)
-                if (!requestManager.shouldRequest(packageName)) {
-                    shouldNotify = true
-                }
-
-                // 3 秒后重试
-                AppExecutorUtil.getAppScheduledExecutorService().schedule(
-                    { fetchPackageInfo(packageName, onFinish) },
-                    RETRY_DELAY_MILLIS,
-                    TimeUnit.MILLISECONDS
-                )
-            }
-            runningRequests.remove(packageName)
-            if (shouldNotify) {
-                onFinish?.invoke()
-            }
+            downloadsResponse.body?.string() ?: return null
         }
-    }
+        val downloadsInfo = json.decodeFromString<NpmDownloadsResponse>(downloadsBody)
 
-    fun cancelAllRequests() {
-        runningRequests.values.forEach { if (!it.isCanceled()) it.cancel() }
-        runningRequests.clear()
-    }
-
-    fun clearCache() {
-        cache.clear()
-        saveCacheToDiskAsync()
+        val githubUrl = registryInfo.repository?.url?.removePrefix("git+")?.removeSuffix(".git")
+        val packageInfo = NpmPackageInfo(
+            name = registryInfo.name,
+            weeklyDownloads = downloadsInfo.downloads,
+            githubUrl = githubUrl
+        )
+        logger.info("[请求成功] $key, 下载量: ${packageInfo.weeklyDownloads}, github: ${packageInfo.githubUrl}")
+        return packageInfo
     }
 
     fun shutdown() {
-        cancelAllRequests()
-        clearCache()
+        shutdownInternal()
     }
 }

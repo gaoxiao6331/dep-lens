@@ -2,16 +2,12 @@ package deplens.lang.go
 
 import com.goide.psi.GoImportSpec
 import com.goide.vgo.mod.psi.VgoModuleSpec
-import com.intellij.codeInsight.hints.declarative.InlayHintsCollector
-import com.intellij.codeInsight.hints.declarative.InlayHintsProvider
 import com.intellij.codeInsight.hints.declarative.InlayTreeSink
-import com.intellij.codeInsight.hints.declarative.SharedBypassCollector
 import com.intellij.openapi.diagnostic.logger
-import com.intellij.openapi.editor.Editor
-import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
+import deplens.lang.BaseDepLensInlayProvider
 import deplens.utils.UiUtils
 import deplens.utils.service.GithubRepoInfoService
 import deplens.utils.service.RepoKey
@@ -21,7 +17,7 @@ import deplens.utils.I18n
 import deplens.utils.ProgressUtils
 
 
-class GoDepLensInlayProvider : InlayHintsProvider, DumbAware {
+class GoDepLensInlayProvider : BaseDepLensInlayProvider() {
 
     companion object {
 
@@ -58,45 +54,39 @@ class GoDepLensInlayProvider : InlayHintsProvider, DumbAware {
       return GithubRepoInfoService.getRepoKey(path)
     }
 
-    override fun createCollector(file: PsiFile, editor: Editor): InlayHintsCollector {
+    override fun collectElement(file: PsiFile, element: PsiElement, sink: InlayTreeSink) {
 
-        return object : SharedBypassCollector {
+        val repoKey = extractRepoInfo(element) ?: return
 
-            override fun collectFromElement(element: PsiElement, sink: InlayTreeSink) {
+        val offset = when (element) {
+            is GoImportSpec -> element.stringLiteral?.textRange?.endOffset
+            is VgoModuleSpec -> element.textRange.endOffset
+            else -> null
+        } ?: return
 
-                val repoKey = extractRepoInfo(element) ?: return
+        val res = GithubRepoInfoService.getRepoInfo(repoKey.owner, repoKey.repo)
 
-                val offset = when (element) {
-                    is GoImportSpec -> element.stringLiteral?.textRange?.endOffset
-                    is VgoModuleSpec -> element.textRange.endOffset
-                    else -> null
-                } ?: return
+        val displayText = when (res.result) {
+            Result.NONE -> I18n.message(I18nKey.loading)
+            Result.SUCCESS -> "⭐ ${res.data?.stars ?: 0} • ${I18n.message(I18nKey.lastUpdated)} ${res.data?.updatedDate ?: "N/A"}"
+            else -> I18n.message(I18nKey.failedToLoad) // TODO: pending 时有问题
+        }
 
-                val res = GithubRepoInfoService.getRepoInfo(repoKey.owner, repoKey.repo)
+        UiUtils.addInlay(sink, offset, displayText)
 
-                val displayText = when (res.result) {
-                    Result.NONE -> I18n.message(I18nKey.loading)
-                    Result.SUCCESS -> "⭐ ${res.data?.stars ?: 0} • ${I18n.message(I18nKey.lastUpdated)} ${res.data?.updatedDate ?: "N/A"}"
-                    else -> I18n.message(I18nKey.failedToLoad) // TODO: pending 时有问题
-                }
+        if (res.result == Result.NONE) {
 
-                UiUtils.addInlay(sink, offset, displayText)
-
-                if (res.result == Result.NONE) {
-
-                    ProgressUtils.runBackground(
-                        file.project,
-                        "DepLens: Fetch GitHub ${repoKey.owner}/${repoKey.repo}"
-                    ) {
-                        try {
-                            GithubRepoInfoService
-                                .fetchRepoInfo(repoKey.owner, repoKey.repo) {
-                                    UiUtils.refreshInlayHints(file)
-                                }
-                        } catch (e: Exception) {
-                            LOG.warn("Failed to load repo info for $repoKey", e)
+            ProgressUtils.runBackground(
+                file.project,
+                "DepLens: Fetch GitHub ${repoKey.owner}/${repoKey.repo}"
+            ) {
+                try {
+                    GithubRepoInfoService
+                        .fetchRepoInfo(repoKey.owner, repoKey.repo) {
+                            UiUtils.refreshInlayHints(file)
                         }
-                    }
+                } catch (e: Exception) {
+                    LOG.warn("Failed to load repo info for $repoKey", e)
                 }
             }
         }

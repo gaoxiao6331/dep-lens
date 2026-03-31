@@ -26,7 +26,7 @@
 
     <depends>com.intellij.modules.platform</depends>
     <depends optional="true" config-file="go.xml">org.jetbrains.plugins.go</depends>
-    <depends optional="true" config-file="ts.xml">JavaScript</depends>
+    <depends optional="true" config-file="ts.xml">com.intellij.modules.javascript</depends>
     <depends optional="true" config-file="java/java.xml">com.intellij.modules.java</depends>
     <depends config-file="java/kotlin.xml">org.jetbrains.kotlin</depends>
     <depends optional="true" config-file="java/maven.xml">org.jetbrains.idea.maven</depends>

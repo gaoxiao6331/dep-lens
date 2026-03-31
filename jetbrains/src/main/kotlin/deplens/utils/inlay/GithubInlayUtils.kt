@@ -21,6 +21,8 @@ object GithubInlayUtils {
     }
 
     fun getRepoDisplayText(file: PsiFile, repoKey: RepoKey): String {
+        val project = file.project
+        val vFile = file.virtualFile
         val repoRes = GithubRepoInfoService.getRepoInfo(repoKey.owner, repoKey.repo)
 
         return when (repoRes.result) {
@@ -31,7 +33,9 @@ object GithubInlayUtils {
                 ) {
                     try {
                         GithubRepoInfoService.fetchRepoInfo(repoKey.owner, repoKey.repo) {
-                            UiUtils.refreshInlayHints(file)
+                            if (vFile != null) {
+                                UiUtils.refreshInlayHints(project, vFile)
+                            }
                         }
                     } catch (e: Exception) {
                         LOG.warn("Failed to load repo info for $repoKey", e)

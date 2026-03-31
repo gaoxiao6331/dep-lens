@@ -67,9 +67,10 @@ class GoDepLensInlayProvider : BaseDepLensInlayProvider() {
         val res = GithubRepoInfoService.getRepoInfo(repoKey.owner, repoKey.repo)
 
         val displayText = when (res.result) {
-            Result.NONE -> I18n.message(I18nKey.loading)
+            Result.NONE -> I18n.message(I18nKey.loadingGithub)
+            Result.PENDING -> I18n.message(I18nKey.loadingGithub)
             Result.SUCCESS -> "⭐ ${res.data?.stars ?: 0} • ${I18n.message(I18nKey.lastUpdated)} ${res.data?.updatedDate ?: "N/A"}"
-            else -> I18n.message(I18nKey.failedToLoad) // TODO: pending 时有问题
+            Result.FAILURE -> I18n.message(I18nKey.failedGithub)
         }
 
         UiUtils.addInlay(sink, offset, displayText)

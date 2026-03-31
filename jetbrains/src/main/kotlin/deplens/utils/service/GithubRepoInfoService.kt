@@ -1,7 +1,6 @@
 package deplens.utils.service
 
 import com.intellij.openapi.diagnostic.Logger
-import com.intellij.util.proxy.CommonProxy
 import deplens.common.ResultWrapper
 import deplens.utils.Formatter
 import kotlinx.serialization.Serializable
@@ -9,6 +8,7 @@ import kotlinx.serialization.json.Json
 import okhttp3.*
 import java.net.Proxy
 import java.net.URI
+import java.net.ProxySelector
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -151,7 +151,7 @@ object GithubRepoInfoService : AbstractCachedRequestService<GithubRepoInfo>() {
     private fun resolveProxy(): Proxy? {
         return try {
             val uri = URI("https://api.github.com")
-            val proxies = CommonProxy.getInstance().select(uri)
+            val proxies = ProxySelector.getDefault()?.select(uri).orEmpty()
             proxies.firstOrNull()
         } catch (e: Exception) {
             logger.warn("Proxy resolve failed", e)

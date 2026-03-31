@@ -43,7 +43,7 @@ intellijPlatform {
         }
         changeNotes.set(
             """
-            Initial version
+            Add TS, Java, Kotlin support and fix some bugs.
             """.trimIndent()
         )
     }

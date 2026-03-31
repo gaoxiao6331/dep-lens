@@ -46,6 +46,6 @@ DepLens 计划逐步扩展到更多语言和 IDE。
 | Language | JetBrains IDEs | VS Code    |
 |----------|----------------|------------|
 | Go       | ✅ Supported    | ✅ Supported     |
-| JS/TS    | 🚧 WIP          | 📅 Planned |
-| Java     | 📅 Planned      | 📅 Planned |
-| Kotlin   | 📅 Planned      | 📅 Planned |
+| JS/TS    | ✅ Supported | 📅 Planned |
+| Java     | ✅ Supported      | 📅 Planned |
+| Kotlin   | ✅ Supported     | 📅 Planned |

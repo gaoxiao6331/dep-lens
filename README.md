@@ -48,8 +48,8 @@ Example:
 DepLens plans to gradually expand to more languages and IDEs.
 
 | Language | JetBrains IDEs | VS Code    |
-| -------- | -------------- | ---------- |
-| Go       | ✅ Supported    | ✅ Supported  |
-| JS/TS    | 🚧 WIP         | 📅 Planned |
-| Java     | 📅 Planned     | 📅 Planned |
-| Kotlin   | 📅 Planned     | 📅 Planned |
+| -------- |----------------| ---------- |
+| Go       | ✅ Supported    | ✅ Supported|
+| JS/TS    | ✅ Supported    | 📅 Planned |
+| Java     | ✅ Supported    | 📅 Planned |
+| Kotlin   | ✅ Supported   | 📅 Planned |

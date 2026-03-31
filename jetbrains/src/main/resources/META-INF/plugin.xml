@@ -3,7 +3,26 @@
     <name>Dep Lens</name>
     <version>0.2.0</version>
     <vendor email="gaoxiao6331@163.com">gaoxiao</vendor>
-    <description>View details of third-party dependencies</description>
+    <description><![CDATA[
+    <p><b>Dep Lens</b> shows dependency health signals directly in your editor so you can quickly evaluate third-party packages while coding.</p>
+
+    <p>The plugin resolves dependency source repositories and renders inline hints (Inlay Hints), including:</p>
+    <ul>
+      <li>GitHub star count</li>
+      <li>Repository last update date</li>
+    </ul>
+
+    <p><b>Supported contexts</b></p>
+    <ul>
+      <li>Go: <code>import</code> and <code>go.mod</code> dependencies</li>
+      <li>Java/Kotlin: import-based dependency resolution</li>
+      <li>Maven: <code>pom.xml</code> dependencies</li>
+      <li>Gradle: <code>build.gradle</code> and <code>build.gradle.kts</code> dependency declarations</li>
+      <li>JavaScript/TypeScript: imports and <code>package.json</code> dependency sections</li>
+    </ul>
+
+    <p>Dep Lens uses local cache files and public package/repository metadata to keep hints responsive and reduce repeated network requests.</p>
+    ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
     <depends optional="true" config-file="go.xml">org.jetbrains.plugins.go</depends>

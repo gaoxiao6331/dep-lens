@@ -19,10 +19,11 @@ class MavenDepLensInlayProvider : BaseDepLensInlayProvider() {
         val groupId = tag.findFirstSubTag("groupId")?.value?.text?.trim()
         val artifactIdTag = tag.findFirstSubTag("artifactId")
         val artifactId = artifactIdTag?.value?.text?.trim()
-        val version = tag.findFirstSubTag("version")?.value?.text?.trim()
+        val versionTag = tag.findFirstSubTag("version")
+        val version = versionTag?.value?.text?.trim()
 
         val repoKey = MavenRepoResolver.repoKeyFromGroupArtifact(groupId, artifactId, version) ?: return
-        val offset = artifactIdTag?.value?.textRange?.endOffset ?: return
+        val offset = artifactIdTag?.textRange?.endOffset ?: return
 
         GithubInlayUtils.addRepoInlay(file, sink, repoKey, offset)
     }

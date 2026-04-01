@@ -1,8 +1,8 @@
 package deplens.utils
 
-import com.intellij.codeInsight.hints.declarative.InlayPayload
 import com.intellij.codeInsight.hints.declarative.InlineInlayPosition
 import com.intellij.codeInsight.hints.declarative.InlayTreeSink
+import com.intellij.codeInsight.hints.declarative.HintFormat
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.project.Project
@@ -15,8 +15,9 @@ object UiUtils {
     fun addInlay(sink: InlayTreeSink, offset: Int, displayText: String) {
         sink.addPresentation(
             InlineInlayPosition(offset, relatedToPrevious = true),
-            payloads = emptyList<InlayPayload>(),
-            hasBackground = true
+            null,
+            displayText,
+            HintFormat.default
         ) {
             text(displayText)
         }

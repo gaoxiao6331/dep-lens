@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "deplens"
-version = "0.2.0"
+version = "0.2.1"
 
 repositories {
     mavenCentral()
@@ -43,7 +43,9 @@ intellijPlatform {
         }
         changeNotes.set(
             """
-            Add TS, Java, Kotlin support and fix some bugs.
+            1. Add TS, Java, Kotlin support.
+            2. Fix some bugs.
+            3. Replace deprecated APIs..
             """.trimIndent()
         )
     }

@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>deplens</id>
     <name>Dep Lens</name>
-    <version>0.2.0</version>
+    <version>0.2.1</version>
     <vendor email="gaoxiao6331@163.com">gaoxiao</vendor>
     <description><![CDATA[
     <p><b>Dep Lens</b> shows dependency health signals directly in your editor so you can quickly evaluate third-party packages while coding.</p>
@@ -28,7 +28,7 @@
     <depends optional="true" config-file="go.xml">org.jetbrains.plugins.go</depends>
     <depends optional="true" config-file="ts.xml">com.intellij.modules.javascript</depends>
     <depends optional="true" config-file="java/java.xml">com.intellij.modules.java</depends>
-    <depends config-file="java/kotlin.xml">org.jetbrains.kotlin</depends>
+    <depends optional="true" config-file="java/kotlin.xml">org.jetbrains.kotlin</depends>
     <depends optional="true" config-file="java/maven.xml">org.jetbrains.idea.maven</depends>
     <depends optional="true" config-file="java/gradle.xml">org.jetbrains.plugins.gradle</depends>
 

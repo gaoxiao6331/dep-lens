@@ -3,6 +3,8 @@ package deplens.utils
 import com.intellij.codeInsight.hints.declarative.InlineInlayPosition
 import com.intellij.codeInsight.hints.declarative.InlayTreeSink
 import com.intellij.codeInsight.hints.declarative.HintFormat
+import com.intellij.codeInsight.hints.declarative.InlayPayload
+import com.intellij.codeInsight.hints.declarative.StringInlayActionPayload
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.project.Project
@@ -12,11 +14,17 @@ import com.intellij.openapi.vfs.VirtualFile
 
 object UiUtils {
 
-    fun addInlay(sink: InlayTreeSink, offset: Int, displayText: String) {
+    const val HOVER_TEXT_PAYLOAD_NAME: String = "deplens.hover.text"
+
+    fun addInlay(sink: InlayTreeSink, offset: Int, displayText: String, hoverText: String = displayText) {
+        val payloads = listOf(
+            InlayPayload(HOVER_TEXT_PAYLOAD_NAME, StringInlayActionPayload(hoverText))
+        )
+
         sink.addPresentation(
             InlineInlayPosition(offset, relatedToPrevious = true),
+            payloads,
             null,
-            displayText,
             HintFormat.default
         ) {
             text(displayText)

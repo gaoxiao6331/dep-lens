@@ -120,6 +120,7 @@ object NpmInlayUtils {
             else -> I18n.message(I18nKey.failedGithub)
         }
 
-        UiUtils.addInlay(sink, offset, displayText)
+        val githubUrl = "https://github.com/${repoKey.owner}/${repoKey.repo}"
+        UiUtils.addInlay(sink, offset, displayText, githubUrl = githubUrl)
     }
 }

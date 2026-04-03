@@ -14,12 +14,23 @@ import com.intellij.openapi.startup.ProjectActivity
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.ui.HintHint
+import com.intellij.ui.JBColor
 import com.intellij.ui.LightweightHint
 import com.intellij.util.Alarm
+import com.intellij.util.ui.JBUI
 import deplens.utils.UiUtils
+import java.awt.Component
+import java.awt.Graphics
+import java.awt.Graphics2D
 import java.awt.MouseInfo
 import java.awt.Point
+import java.awt.RenderingHints
+import javax.swing.JEditorPane
+import javax.swing.JPanel
+import javax.swing.JScrollPane
 import javax.swing.SwingUtilities
+import javax.swing.UIManager
+import javax.swing.border.AbstractBorder
 
 class DepLensInlayHoverPopupActivity : ProjectActivity {
 
@@ -36,7 +47,7 @@ private class DepLensInlayHoverPopupListener(private val project: Project) : Edi
     companion object {
 
         private const val DEP_PROVIDER_PREFIX = "deplens."
-        private const val HIDE_DELAY_MS = 450
+        private const val HIDE_DELAY_MS = 90
         private const val SWITCH_DELAY_MS = 220
         private val TOOLTIP_GROUP = TooltipGroup("deplens.inlay.hover", 0)
     }
@@ -46,6 +57,7 @@ private class DepLensInlayHoverPopupListener(private val project: Project) : Edi
     private var shownHint: LightweightHint? = null
     private var shownInlay: Inlay<*>? = null
     private var shownText: String? = null
+    private var shownGithubUrl: String? = null
 
     override fun mouseMoved(event: EditorMouseEvent) {
         if (event.editor.project !== project || event.area != EditorMouseEventArea.EDITING_AREA) {
@@ -71,6 +83,17 @@ private class DepLensInlayHoverPopupListener(private val project: Project) : Edi
                     (payload.payload as? StringInlayActionPayload)?.text
                 }
             }
+        val githubUrl = renderer.presentationLists
+            .asSequence()
+            .map { it.model.payloads.orEmpty() }
+            .flatten()
+            .firstNotNullOfOrNull { payload ->
+                if (payload.payloadName != UiUtils.GITHUB_URL_PAYLOAD_NAME) {
+                    null
+                } else {
+                    (payload.payload as? StringInlayActionPayload)?.text
+                }
+            }
 
         if (hoverText.isNullOrBlank()) {
             scheduleHide()
@@ -79,19 +102,19 @@ private class DepLensInlayHoverPopupListener(private val project: Project) : Edi
 
         hideAlarm.cancelAllRequests()
         switchAlarm.cancelAllRequests()
-        if (shownInlay == inlay && shownText == hoverText && shownHint != null) {
+        if (shownInlay == inlay && shownText == hoverText && shownGithubUrl == githubUrl && shownHint != null) {
             return
         }
 
         if (shownHint != null && shownInlay != null && shownInlay != inlay) {
-            scheduleSwitch(event, inlay, hoverText)
+            scheduleSwitch(event, inlay, hoverText, githubUrl)
             return
         }
 
-        showHint(event.editor, inlay, hoverText)
+        showHint(event.editor, inlay, hoverText, githubUrl)
     }
 
-    private fun showHint(editor: com.intellij.openapi.editor.Editor, inlay: Inlay<*>, hoverText: String) {
+    private fun showHint(editor: com.intellij.openapi.editor.Editor, inlay: Inlay<*>, hoverText: String, githubUrl: String?) {
         hideHint()
 
         val inlayBounds = inlay.bounds
@@ -109,12 +132,22 @@ private class DepLensInlayHoverPopupListener(private val project: Project) : Edi
             SwingUtilities.convertPoint(editor.contentComponent, anchorPoint, layeredPane)
         } ?: Point(anchorPoint)
 
-        val htmlText = "<html>${StringUtil.escapeXmlEntities(hoverText).replace("\n", "<br/>")}</html>"
-        val lineTooltip = LineTooltipRenderer(htmlText, emptyArray<Any>())
+        val escapedText = StringUtil.escapeXmlEntities(hoverText).replace("\n", "<br/>")
+        val linkHtml = if (!githubUrl.isNullOrBlank()) {
+            val escapedUrl = StringUtil.escapeXmlEntities(githubUrl)
+            "<br/><br/><a href=\"$escapedUrl\">Open on GitHub</a>"
+        } else {
+            ""
+        }
+        val htmlText = "<html>$escapedText$linkHtml</html>"
+        val lineTooltip = DepLensLineTooltipRenderer(htmlText, emptyArray())
         val hintHint = HintHint(editor.component, popupPoint).setAwtTooltip(false)
+        hintHint.setComponentBorder(JBUI.Borders.empty())
+        hintHint.setBorderInsets(JBUI.emptyInsets())
         shownHint = lineTooltip.show(editor, Point(popupPoint), false, TOOLTIP_GROUP, hintHint)
         shownInlay = inlay
         shownText = hoverText
+        shownGithubUrl = githubUrl
     }
 
     override fun mouseExited(event: EditorMouseEvent) {
@@ -132,6 +165,7 @@ private class DepLensInlayHoverPopupListener(private val project: Project) : Edi
         shownHint = null
         shownInlay = null
         shownText = null
+        shownGithubUrl = null
     }
 
     private fun scheduleHide() {
@@ -144,7 +178,7 @@ private class DepLensInlayHoverPopupListener(private val project: Project) : Edi
         }, HIDE_DELAY_MS)
     }
 
-    private fun scheduleSwitch(event: EditorMouseEvent, targetInlay: Inlay<*>, targetText: String) {
+    private fun scheduleSwitch(event: EditorMouseEvent, targetInlay: Inlay<*>, targetText: String, targetGithubUrl: String?) {
         if (isPointerInsideHint()) return
 
         switchAlarm.cancelAllRequests()
@@ -158,7 +192,7 @@ private class DepLensInlayHoverPopupListener(private val project: Project) : Edi
 
             val currentInlay = editor.inlayModel.getElementAt(pointInEditor)
             if (currentInlay == targetInlay) {
-                showHint(editor, targetInlay, targetText)
+                showHint(editor, targetInlay, targetText, targetGithubUrl)
             }
         }, SWITCH_DELAY_MS)
     }
@@ -178,5 +212,60 @@ private class DepLensInlayHoverPopupListener(private val project: Project) : Edi
             localPoint.y >= 0 &&
             localPoint.x < component.width &&
             localPoint.y < component.height
+    }
+}
+
+private class DepLensLineTooltipRenderer(text: String, comparable: Array<Any>) : LineTooltipRenderer(text, comparable) {
+
+    override fun fillPanel(
+        editor: com.intellij.openapi.editor.Editor,
+        component: JPanel,
+        hint: LightweightHint,
+        hintHint: HintHint,
+        actions: MutableList<in com.intellij.openapi.actionSystem.AnAction>,
+        reloader: LineTooltipRenderer.TooltipReloader,
+        expand: Boolean
+    ) {
+        super.fillPanel(editor, component, hint, hintHint, actions, reloader, expand)
+        component.border = JBUI.Borders.compound(
+            RoundedHintBorder(),
+            JBUI.Borders.empty(8, 12)
+        )
+        clearBorders(component)
+    }
+
+    private fun clearBorders(panel: JPanel) {
+        for (child in panel.components) {
+            when (child) {
+                is JScrollPane -> {
+                    child.border = JBUI.Borders.empty()
+                    child.viewportBorder = JBUI.Borders.empty()
+                    val view = child.viewport?.view
+                    if (view is JEditorPane) {
+                        view.border = JBUI.Borders.empty()
+                    }
+                }
+                is JEditorPane -> {
+                    child.border = JBUI.Borders.empty()
+                }
+                is JPanel -> clearBorders(child)
+            }
+        }
+    }
+}
+
+private class RoundedHintBorder : AbstractBorder() {
+
+    private val arc = JBUI.scale(10)
+
+    override fun paintBorder(c: Component, g: Graphics, x: Int, y: Int, width: Int, height: Int) {
+        val g2 = g as? Graphics2D ?: return
+        val oldAntialias = g2.getRenderingHint(RenderingHints.KEY_ANTIALIASING)
+        val oldColor = g2.color
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+        g2.color = UIManager.getColor("Tooltip.borderColor") ?: JBColor.GRAY
+        g2.drawRoundRect(x, y, width - 1, height - 1, arc, arc)
+        g2.color = oldColor
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, oldAntialias)
     }
 }

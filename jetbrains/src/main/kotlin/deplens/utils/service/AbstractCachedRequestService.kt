@@ -113,6 +113,7 @@ abstract class AbstractCachedRequestService<T : CachedEntry> {
 
                 val body = response.body?.string() ?: return
                 val data = parseResponseBody(key, body) ?: return
+                // Only successful parse/write updates cache; failures never overwrite existing cache entry.
                 cache[key] = data
                 saveCacheToDiskAsync()
                 shouldNotify = true
@@ -122,6 +123,7 @@ abstract class AbstractCachedRequestService<T : CachedEntry> {
         } finally {
             val hasData = cache.containsKey(key)
             if (!hasData) {
+                // Request failed and no cache was produced this round; mark failure for retry/backoff.
                 requestManager.updateFailed(key)
                 val canRetry = requestManager.shouldRequest(key)
                 if (canRetry) {
@@ -140,6 +142,12 @@ abstract class AbstractCachedRequestService<T : CachedEntry> {
                 onFinish?.invoke()
             }
         }
+    }
+
+    protected fun retryByKey(key: String, onFinish: (() -> Unit)? = null) {
+        // Explicit retry should bypass previous failure quota and try immediately.
+        requestManager.clearFailure(key)
+        fetchByKey(key, onFinish)
     }
 
     fun hasFailure(key: String): Boolean = requestManager.hasFailure(key)

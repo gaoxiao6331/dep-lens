@@ -14,6 +14,8 @@ import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.startup.ProjectActivity
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.text.StringUtil
+import deplens.common.I18nKey
+import deplens.utils.I18n
 import com.intellij.ui.HintHint
 import com.intellij.ui.JBColor
 import com.intellij.ui.LightweightHint
@@ -27,6 +29,8 @@ import java.awt.MouseInfo
 import java.awt.Point
 import java.awt.Rectangle
 import java.awt.RenderingHints
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import javax.swing.JEditorPane
 import javax.swing.JPanel
 import javax.swing.JScrollPane
@@ -57,6 +61,7 @@ private class DepLensInlayHoverPopupListener(private val project: Project) : Edi
     private var shownInlay: Inlay<*>? = null
     private var shownText: String? = null
     private var shownGithubUrl: String? = null
+    private var shownRetryToken: String? = null
     // Once pointer has entered tooltip, close immediately when it leaves.
     private var hintWasEntered: Boolean = false
 
@@ -99,6 +104,17 @@ private class DepLensInlayHoverPopupListener(private val project: Project) : Edi
                     (payload.payload as? StringInlayActionPayload)?.text
                 }
             }
+        val retryToken = renderer.presentationLists
+            .asSequence()
+            .map { it.model.payloads.orEmpty() }
+            .flatten()
+            .firstNotNullOfOrNull { payload ->
+                if (payload.payloadName != UiUtils.RETRY_TOKEN_PAYLOAD_NAME) {
+                    null
+                } else {
+                    (payload.payload as? StringInlayActionPayload)?.text
+                }
+            }
 
         if (hoverText.isNullOrBlank()) {
             if (!shouldKeepHintByGeometry(event.editor)) {
@@ -107,22 +123,34 @@ private class DepLensInlayHoverPopupListener(private val project: Project) : Edi
             return
         }
 
-        if (shownInlay == inlay && shownText == hoverText && shownGithubUrl == githubUrl) {
+        if (shownInlay == inlay && shownText == hoverText && shownGithubUrl == githubUrl && shownRetryToken == retryToken) {
             return
         }
 
-        showHint(event, inlay, hoverText, githubUrl)
+        showHint(event, inlay, hoverText, githubUrl, retryToken)
     }
 
-    private fun showHint(event: EditorMouseEvent, inlay: Inlay<*>, hoverText: String, githubUrl: String?) {
+    private fun showHint(
+        event: EditorMouseEvent,
+        inlay: Inlay<*>,
+        hoverText: String,
+        githubUrl: String?,
+        retryToken: String?
+    ) {
         val escapedText = StringUtil.escapeXmlEntities(hoverText).replace("\n", "<br/>")
         val linkHtml = if (!githubUrl.isNullOrBlank()) {
             val escapedUrl = StringUtil.escapeXmlEntities(githubUrl)
-            "<br/><br/><a href=\"$escapedUrl\">Open on GitHub</a>"
+            "<br/><br/><a href=\"$escapedUrl\">${StringUtil.escapeXmlEntities(I18n.message(I18nKey.openOnGithub))}</a>"
         } else {
             ""
         }
-        val htmlText = "<html>$escapedText$linkHtml</html>"
+        val retryHtml = if (!retryToken.isNullOrBlank()) {
+            val encodedToken = URLEncoder.encode(retryToken, StandardCharsets.UTF_8)
+            "<br/><a href=\"deplens:retry:$encodedToken\">${StringUtil.escapeXmlEntities(I18n.message(I18nKey.retry))}</a>"
+        } else {
+            ""
+        }
+        val htmlText = "<html>$escapedText$linkHtml$retryHtml</html>"
         val lineTooltip = DepLensLineTooltipRenderer(htmlText, emptyArray<Any>())
         val hintHint = HintHint(event.mouseEvent).setAwtTooltip(false)
         hintHint.setComponentBorder(JBUI.Borders.empty())
@@ -138,6 +166,7 @@ private class DepLensInlayHoverPopupListener(private val project: Project) : Edi
         shownInlay = inlay
         shownText = hoverText
         shownGithubUrl = githubUrl
+        shownRetryToken = retryToken
         hintWasEntered = false
     }
 
@@ -157,6 +186,7 @@ private class DepLensInlayHoverPopupListener(private val project: Project) : Edi
         shownInlay = null
         shownText = null
         shownGithubUrl = null
+        shownRetryToken = null
         hintWasEntered = false
     }
 

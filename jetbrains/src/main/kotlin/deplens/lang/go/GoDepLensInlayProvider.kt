@@ -74,7 +74,13 @@ class GoDepLensInlayProvider : BaseDepLensInlayProvider() {
         }
 
         val githubUrl = "https://github.com/${repoKey.owner}/${repoKey.repo}"
-        UiUtils.addInlay(sink, offset, displayText, githubUrl = githubUrl)
+        UiUtils.addInlay(
+            sink,
+            offset,
+            displayText,
+            githubUrl = githubUrl,
+            retryToken = "github:${repoKey.owner}/${repoKey.repo}"
+        )
 
         if (res.result == Result.NONE) {
 

@@ -40,5 +40,6 @@
 
     <extensions defaultExtensionNs="com.intellij">
         <postStartupActivity implementation="deplens.ui.DepLensInlayHoverPopupActivity"/>
+        <codeInsight.linkHandler prefix="deplens:" handlerClass="deplens.ui.DepLensTooltipLinkHandler"/>
     </extensions>
 </idea-plugin>

@@ -23,7 +23,12 @@ object NpmInlayUtils {
         when (npmRes.result) {
             Result.NONE -> {
                 if (NpmPkgInfoService.hasFailure(pkg) && !NpmPkgInfoService.isRequestRunning(pkg)) {
-                    UiUtils.addInlay(sink, offset, I18n.message(I18nKey.failedNpmMeta))
+                    UiUtils.addInlay(
+                        sink,
+                        offset,
+                        I18n.message(I18nKey.failedNpmMeta),
+                        retryToken = "npm:$pkg"
+                    )
                     return
                 }
                 ProgressUtils.runBackground(file.project, "DepLens: Fetch npm $pkg") {
@@ -70,32 +75,62 @@ object NpmInlayUtils {
                         LOG.warn("Failed to load repo info for $pkg", e)
                     }
                 }
-                UiUtils.addInlay(sink, offset, I18n.message(I18nKey.loadingNpmMeta))
+                UiUtils.addInlay(
+                    sink,
+                    offset,
+                    I18n.message(I18nKey.loadingNpmMeta),
+                    retryToken = "npm:$pkg"
+                )
                 return
             }
             Result.SUCCESS -> {}
             Result.PENDING -> {
-                UiUtils.addInlay(sink, offset, I18n.message(I18nKey.loadingNpmMeta))
+                UiUtils.addInlay(
+                    sink,
+                    offset,
+                    I18n.message(I18nKey.loadingNpmMeta),
+                    retryToken = "npm:$pkg"
+                )
                 return
             }
             else -> {
-                UiUtils.addInlay(sink, offset, I18n.message(I18nKey.failedNpmMeta))
+                UiUtils.addInlay(
+                    sink,
+                    offset,
+                    I18n.message(I18nKey.failedNpmMeta),
+                    retryToken = "npm:$pkg"
+                )
                 return
             }
         }
 
         val npmInfo = npmRes.data ?: run {
-            UiUtils.addInlay(sink, offset, I18n.message(I18nKey.failedNpmMeta))
+            UiUtils.addInlay(
+                sink,
+                offset,
+                I18n.message(I18nKey.failedNpmMeta),
+                retryToken = "npm:$pkg"
+            )
             return
         }
         val url = npmInfo.githubUrl
         if (url.isNullOrBlank()) {
-            UiUtils.addInlay(sink, offset, I18n.message(I18nKey.noGithubUrl))
+            UiUtils.addInlay(
+                sink,
+                offset,
+                I18n.message(I18nKey.noGithubUrl),
+                retryToken = "npm:$pkg"
+            )
             return
         }
         val repoKey = GithubRepoInfoService.getRepoKey(url)
         if (repoKey == null) {
-            UiUtils.addInlay(sink, offset, I18n.message(I18nKey.invalidGithubUrl))
+            UiUtils.addInlay(
+                sink,
+                offset,
+                I18n.message(I18nKey.invalidGithubUrl),
+                retryToken = "npm:$pkg"
+            )
             return
         }
 
@@ -121,6 +156,12 @@ object NpmInlayUtils {
         }
 
         val githubUrl = "https://github.com/${repoKey.owner}/${repoKey.repo}"
-        UiUtils.addInlay(sink, offset, displayText, githubUrl = githubUrl)
+        UiUtils.addInlay(
+            sink,
+            offset,
+            displayText,
+            githubUrl = githubUrl,
+            retryToken = "github:${repoKey.owner}/${repoKey.repo}"
+        )
     }
 }

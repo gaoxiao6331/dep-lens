@@ -18,7 +18,13 @@ object GithubInlayUtils {
     fun addRepoInlay(file: PsiFile, sink: InlayTreeSink, repoKey: RepoKey, offset: Int) {
         val displayText = getRepoDisplayText(file, repoKey)
         val githubUrl = "https://github.com/${repoKey.owner}/${repoKey.repo}"
-        UiUtils.addInlay(sink, offset, displayText, githubUrl = githubUrl)
+        UiUtils.addInlay(
+            sink,
+            offset,
+            displayText,
+            githubUrl = githubUrl,
+            retryToken = "github:${repoKey.owner}/${repoKey.repo}"
+        )
     }
 
     fun getRepoDisplayText(file: PsiFile, repoKey: RepoKey): String {

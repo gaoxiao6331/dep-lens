@@ -8,5 +8,7 @@
     "failedNpmMeta": "npm 元数据加载失败",
     "failedGithub": "GitHub 信息加载失败",
     "noGithubUrl": "没有 GitHub 地址",
-    "invalidGithubUrl": "GitHub 地址无效"
+    "invalidGithubUrl": "GitHub 地址无效",
+    "openOnGithub": "在 GitHub 上打开",
+    "retry": "重试"
 }

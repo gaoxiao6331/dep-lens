@@ -40,4 +40,8 @@ class RequestManager {
     }
 
     fun hasFailure(key: String): Boolean = getFailureCount(key) > 0
+
+    fun clearFailure(key: String) {
+        failed.remove(key)
+    }
 }

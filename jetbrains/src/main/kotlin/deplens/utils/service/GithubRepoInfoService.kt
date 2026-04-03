@@ -110,6 +110,12 @@ object GithubRepoInfoService : AbstractCachedRequestService<GithubRepoInfo>() {
         fetchByKey(key, onFinish)
     }
 
+    fun retryRepoInfo(owner: String, repo: String, onFinish: (() -> Unit)? = null): Unit {
+        // Explicit retry for UI action: bypass failure quota and trigger immediate fetch.
+        val key = getCacheKey(owner, repo)
+        retryByKey(key, onFinish)
+    }
+
     override fun createRequestCall(key: String): Call? {
         val parts = key.split("/", limit = 2)
         if (parts.size < 2 || parts[0].isBlank() || parts[1].isBlank()) {

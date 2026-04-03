@@ -61,6 +61,11 @@ object NpmPkgInfoService : AbstractCachedRequestService<NpmPackageInfo>() {
         fetchByKey(packageName, onFinish)
     }
 
+    fun retryPackageInfo(packageName: String, onFinish: (() -> Unit)? = null) {
+        // Explicit retry for UI action: bypass failure quota and trigger immediate fetch.
+        retryByKey(packageName, onFinish)
+    }
+
     override fun createRequestCall(key: String): Call {
         val request = Request.Builder()
             .url("https://registry.npmjs.org/$key")

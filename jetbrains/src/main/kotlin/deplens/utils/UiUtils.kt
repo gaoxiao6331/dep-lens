@@ -16,18 +16,23 @@ object UiUtils {
 
     const val HOVER_TEXT_PAYLOAD_NAME: String = "deplens.hover.text"
     const val GITHUB_URL_PAYLOAD_NAME: String = "deplens.github.url"
+    const val RETRY_TOKEN_PAYLOAD_NAME: String = "deplens.retry.token"
 
     fun addInlay(
         sink: InlayTreeSink,
         offset: Int,
         displayText: String,
         hoverText: String = displayText,
-        githubUrl: String? = null
+        githubUrl: String? = null,
+        retryToken: String? = null
     ) {
         val payloads = buildList {
             add(InlayPayload(HOVER_TEXT_PAYLOAD_NAME, StringInlayActionPayload(hoverText)))
             if (!githubUrl.isNullOrBlank()) {
                 add(InlayPayload(GITHUB_URL_PAYLOAD_NAME, StringInlayActionPayload(githubUrl)))
+            }
+            if (!retryToken.isNullOrBlank()) {
+                add(InlayPayload(RETRY_TOKEN_PAYLOAD_NAME, StringInlayActionPayload(retryToken)))
             }
         }
 

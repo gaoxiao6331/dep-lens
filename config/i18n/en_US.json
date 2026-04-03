@@ -8,5 +8,7 @@
     "failedNpmMeta": "npm metadata failed",
     "failedGithub": "github info failed",
     "noGithubUrl": "no github url",
-    "invalidGithubUrl": "invalid github url"
+    "invalidGithubUrl": "invalid github url",
+    "openOnGithub": "Open on GitHub",
+    "retry": "Retry"
 }

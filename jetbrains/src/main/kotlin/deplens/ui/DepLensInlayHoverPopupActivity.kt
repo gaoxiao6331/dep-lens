@@ -1,6 +1,7 @@
 package deplens.ui
 
 import com.intellij.codeInsight.hint.LineTooltipRenderer
+import com.intellij.codeInsight.hint.TooltipController
 import com.intellij.codeInsight.hint.TooltipGroup
 import com.intellij.codeInsight.hints.declarative.StringInlayActionPayload
 import com.intellij.codeInsight.hints.declarative.impl.inlayRenderer.DeclarativeInlayRendererBase
@@ -16,7 +17,7 @@ import com.intellij.openapi.util.text.StringUtil
 import com.intellij.ui.HintHint
 import com.intellij.ui.JBColor
 import com.intellij.ui.LightweightHint
-import com.intellij.util.Alarm
+import com.intellij.ui.awt.RelativePoint
 import com.intellij.util.ui.JBUI
 import deplens.utils.UiUtils
 import java.awt.Component
@@ -24,6 +25,7 @@ import java.awt.Graphics
 import java.awt.Graphics2D
 import java.awt.MouseInfo
 import java.awt.Point
+import java.awt.Rectangle
 import java.awt.RenderingHints
 import javax.swing.JEditorPane
 import javax.swing.JPanel
@@ -47,28 +49,31 @@ private class DepLensInlayHoverPopupListener(private val project: Project) : Edi
     companion object {
 
         private const val DEP_PROVIDER_PREFIX = "deplens."
-        private const val HIDE_DELAY_MS = 90
-        private const val SWITCH_DELAY_MS = 220
+        private const val TRANSITION_MARGIN_PX = 18
         private val TOOLTIP_GROUP = TooltipGroup("deplens.inlay.hover", 0)
     }
 
-    private val hideAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, project)
-    private val switchAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, project)
     private var shownHint: LightweightHint? = null
     private var shownInlay: Inlay<*>? = null
     private var shownText: String? = null
     private var shownGithubUrl: String? = null
+    // Once pointer has entered tooltip, close immediately when it leaves.
+    private var hintWasEntered: Boolean = false
 
     override fun mouseMoved(event: EditorMouseEvent) {
         if (event.editor.project !== project || event.area != EditorMouseEventArea.EDITING_AREA) {
-            scheduleHide()
+            if (!shouldKeepHintByGeometry(event.editor)) {
+                cancelTooltip(event)
+            }
             return
         }
 
         val inlay = event.editor.inlayModel.getElementAt(event.mouseEvent.point)
         val renderer = inlay?.renderer as? DeclarativeInlayRendererBase<*>
         if (renderer == null || !renderer.providerId.startsWith(DEP_PROVIDER_PREFIX)) {
-            scheduleHide()
+            if (!shouldKeepHintByGeometry(event.editor)) {
+                cancelTooltip(event)
+            }
             return
         }
 
@@ -96,42 +101,20 @@ private class DepLensInlayHoverPopupListener(private val project: Project) : Edi
             }
 
         if (hoverText.isNullOrBlank()) {
-            scheduleHide()
+            if (!shouldKeepHintByGeometry(event.editor)) {
+                cancelTooltip(event)
+            }
             return
         }
 
-        hideAlarm.cancelAllRequests()
-        switchAlarm.cancelAllRequests()
-        if (shownInlay == inlay && shownText == hoverText && shownGithubUrl == githubUrl && shownHint != null) {
+        if (shownInlay == inlay && shownText == hoverText && shownGithubUrl == githubUrl) {
             return
         }
 
-        if (shownHint != null && shownInlay != null && shownInlay != inlay) {
-            scheduleSwitch(event, inlay, hoverText, githubUrl)
-            return
-        }
-
-        showHint(event.editor, inlay, hoverText, githubUrl)
+        showHint(event, inlay, hoverText, githubUrl)
     }
 
-    private fun showHint(editor: com.intellij.openapi.editor.Editor, inlay: Inlay<*>, hoverText: String, githubUrl: String?) {
-        hideHint()
-
-        val inlayBounds = inlay.bounds
-        if (inlayBounds == null) {
-            return
-        }
-
-        // Anchor to the inlay itself instead of raw mouse coordinates to avoid container-related offset.
-        val anchorPoint = Point(
-            inlayBounds.x + inlayBounds.width / 2,
-            inlayBounds.y + inlayBounds.height
-        )
-
-        val popupPoint = editor.component.rootPane?.layeredPane?.let { layeredPane ->
-            SwingUtilities.convertPoint(editor.contentComponent, anchorPoint, layeredPane)
-        } ?: Point(anchorPoint)
-
+    private fun showHint(event: EditorMouseEvent, inlay: Inlay<*>, hoverText: String, githubUrl: String?) {
         val escapedText = StringUtil.escapeXmlEntities(hoverText).replace("\n", "<br/>")
         val linkHtml = if (!githubUrl.isNullOrBlank()) {
             val escapedUrl = StringUtil.escapeXmlEntities(githubUrl)
@@ -140,78 +123,81 @@ private class DepLensInlayHoverPopupListener(private val project: Project) : Edi
             ""
         }
         val htmlText = "<html>$escapedText$linkHtml</html>"
-        val lineTooltip = DepLensLineTooltipRenderer(htmlText, emptyArray())
-        val hintHint = HintHint(editor.component, popupPoint).setAwtTooltip(false)
+        val lineTooltip = DepLensLineTooltipRenderer(htmlText, emptyArray<Any>())
+        val hintHint = HintHint(event.mouseEvent).setAwtTooltip(false)
         hintHint.setComponentBorder(JBUI.Borders.empty())
         hintHint.setBorderInsets(JBUI.emptyInsets())
-        shownHint = lineTooltip.show(editor, Point(popupPoint), false, TOOLTIP_GROUP, hintHint)
+        shownHint = TooltipController.getInstance().showTooltipByMouseMove(
+            event.editor,
+            RelativePoint(event.mouseEvent),
+            lineTooltip,
+            false,
+            TOOLTIP_GROUP,
+            hintHint
+        )
         shownInlay = inlay
         shownText = hoverText
         shownGithubUrl = githubUrl
+        hintWasEntered = false
     }
 
     override fun mouseExited(event: EditorMouseEvent) {
-        scheduleHide()
+        if (!shouldKeepHintByGeometry(event.editor)) {
+            cancelTooltip(event)
+        }
     }
 
     override fun mousePressed(event: EditorMouseEvent) {
-        hideHint()
+        cancelTooltip(event)
     }
 
-    private fun hideHint() {
-        hideAlarm.cancelAllRequests()
-        switchAlarm.cancelAllRequests()
-        shownHint?.hide()
+    private fun cancelTooltip(event: EditorMouseEvent) {
+        TooltipController.getInstance().cancelTooltip(TOOLTIP_GROUP, event.mouseEvent, false)
         shownHint = null
         shownInlay = null
         shownText = null
         shownGithubUrl = null
+        hintWasEntered = false
     }
 
-    private fun scheduleHide() {
-        hideAlarm.cancelAllRequests()
-        switchAlarm.cancelAllRequests()
-        hideAlarm.addRequest({
-            if (!isPointerInsideHint()) {
-                hideHint()
-            }
-        }, HIDE_DELAY_MS)
+    private fun shouldKeepHintByGeometry(editor: com.intellij.openapi.editor.Editor): Boolean {
+        val pointer = MouseInfo.getPointerInfo()?.location ?: return false
+        val hintRect = getHintScreenRect() ?: return false
+
+        // Keep alive while pointer is inside the tooltip content.
+        if (hintRect.contains(pointer)) {
+            hintWasEntered = true
+            return true
+        }
+
+        // After first entry, no transition grace: leaving tooltip closes it.
+        if (hintWasEntered) {
+            return false
+        }
+
+        // Before first entry, allow movement inside the inlay->tooltip corridor.
+        val inlayRect = getInlayScreenRect(editor) ?: return false
+        val transition = inlayRect.union(hintRect)
+        transition.grow(TRANSITION_MARGIN_PX, TRANSITION_MARGIN_PX)
+        return transition.contains(pointer)
     }
 
-    private fun scheduleSwitch(event: EditorMouseEvent, targetInlay: Inlay<*>, targetText: String, targetGithubUrl: String?) {
-        if (isPointerInsideHint()) return
-
-        switchAlarm.cancelAllRequests()
-        val editor = event.editor
-        switchAlarm.addRequest({
-            if (isPointerInsideHint()) return@addRequest
-
-            val pointer = MouseInfo.getPointerInfo()?.location ?: return@addRequest
-            val pointInEditor = Point(pointer)
-            SwingUtilities.convertPointFromScreen(pointInEditor, editor.contentComponent)
-
-            val currentInlay = editor.inlayModel.getElementAt(pointInEditor)
-            if (currentInlay == targetInlay) {
-                showHint(editor, targetInlay, targetText, targetGithubUrl)
-            }
-        }, SWITCH_DELAY_MS)
-    }
-
-    private fun isPointerInsideHint(): Boolean {
-        val hint = shownHint ?: return false
-        if (!hint.isVisible) return false
+    private fun getHintScreenRect(): Rectangle? {
+        val hint = shownHint ?: return null
+        if (!hint.isVisible) return null
 
         val component = hint.component
-        if (!component.isShowing) return false
+        if (!component.isShowing) return null
 
-        val screenPoint = MouseInfo.getPointerInfo()?.location ?: return false
-        val localPoint = Point(screenPoint)
-        SwingUtilities.convertPointFromScreen(localPoint, component)
+        val origin = component.locationOnScreen
+        return Rectangle(origin.x, origin.y, component.width, component.height)
+    }
 
-        return localPoint.x >= 0 &&
-            localPoint.y >= 0 &&
-            localPoint.x < component.width &&
-            localPoint.y < component.height
+    private fun getInlayScreenRect(editor: com.intellij.openapi.editor.Editor): Rectangle? {
+        val inlayBounds = shownInlay?.bounds ?: return null
+        val topLeft = Point(inlayBounds.x, inlayBounds.y)
+        SwingUtilities.convertPointToScreen(topLeft, editor.contentComponent)
+        return Rectangle(topLeft.x, topLeft.y, inlayBounds.width, inlayBounds.height)
     }
 }
 
@@ -227,6 +213,7 @@ private class DepLensLineTooltipRenderer(text: String, comparable: Array<Any>) :
         expand: Boolean
     ) {
         super.fillPanel(editor, component, hint, hintHint, actions, reloader, expand)
+        // Keep the dark popup style but remove default hard borders and add rounded container spacing.
         component.border = JBUI.Borders.compound(
             RoundedHintBorder(),
             JBUI.Borders.empty(8, 12)

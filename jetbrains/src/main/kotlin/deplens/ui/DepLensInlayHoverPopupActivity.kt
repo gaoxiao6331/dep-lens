@@ -4,7 +4,6 @@ import com.intellij.codeInsight.hint.LineTooltipRenderer
 import com.intellij.codeInsight.hint.TooltipController
 import com.intellij.codeInsight.hint.TooltipGroup
 import com.intellij.codeInsight.hints.declarative.StringInlayActionPayload
-import com.intellij.codeInsight.hints.declarative.impl.inlayRenderer.DeclarativeInlayRendererBase
 import com.intellij.openapi.editor.Inlay
 import com.intellij.openapi.editor.event.EditorMouseEvent
 import com.intellij.openapi.editor.event.EditorMouseListener
@@ -74,47 +73,22 @@ private class DepLensInlayHoverPopupListener(private val project: Project) : Edi
         }
 
         val inlay = event.editor.inlayModel.getElementAt(event.mouseEvent.point)
-        val renderer = inlay?.renderer as? DeclarativeInlayRendererBase<*>
-        if (renderer == null || !renderer.providerId.startsWith(DEP_PROVIDER_PREFIX)) {
+        val renderer = inlay?.renderer ?: run {
+            if (!shouldKeepHintByGeometry(event.editor)) {
+                cancelTooltip(event)
+            }
+            return
+        }
+        if (!isDepLensDeclarativeRenderer(renderer)) {
             if (!shouldKeepHintByGeometry(event.editor)) {
                 cancelTooltip(event)
             }
             return
         }
 
-        val hoverText = renderer.presentationLists
-            .asSequence()
-            .map { it.model.payloads.orEmpty() }
-            .flatten()
-            .firstNotNullOfOrNull { payload ->
-                if (payload.payloadName != UiUtils.HOVER_TEXT_PAYLOAD_NAME) {
-                    null
-                } else {
-                    (payload.payload as? StringInlayActionPayload)?.text
-                }
-            }
-        val githubUrl = renderer.presentationLists
-            .asSequence()
-            .map { it.model.payloads.orEmpty() }
-            .flatten()
-            .firstNotNullOfOrNull { payload ->
-                if (payload.payloadName != UiUtils.GITHUB_URL_PAYLOAD_NAME) {
-                    null
-                } else {
-                    (payload.payload as? StringInlayActionPayload)?.text
-                }
-            }
-        val retryToken = renderer.presentationLists
-            .asSequence()
-            .map { it.model.payloads.orEmpty() }
-            .flatten()
-            .firstNotNullOfOrNull { payload ->
-                if (payload.payloadName != UiUtils.RETRY_TOKEN_PAYLOAD_NAME) {
-                    null
-                } else {
-                    (payload.payload as? StringInlayActionPayload)?.text
-                }
-            }
+        val hoverText = extractPayloadValue(renderer, UiUtils.HOVER_TEXT_PAYLOAD_NAME)
+        val githubUrl = extractPayloadValue(renderer, UiUtils.GITHUB_URL_PAYLOAD_NAME)
+        val retryToken = extractPayloadValue(renderer, UiUtils.RETRY_TOKEN_PAYLOAD_NAME)
 
         if (hoverText.isNullOrBlank()) {
             if (!shouldKeepHintByGeometry(event.editor)) {
@@ -234,6 +208,39 @@ private class DepLensInlayHoverPopupListener(private val project: Project) : Edi
         val topLeft = Point(inlayBounds.x, inlayBounds.y)
         SwingUtilities.convertPointToScreen(topLeft, editor.contentComponent)
         return Rectangle(topLeft.x, topLeft.y, inlayBounds.width, inlayBounds.height)
+    }
+
+    // Access declarative renderer payloads by reflection to avoid binary coupling to internal classes.
+    private fun isDepLensDeclarativeRenderer(renderer: Any): Boolean {
+        val providerId = invokeNoArg(renderer, "getProviderId") as? String ?: return false
+        return providerId.startsWith(DEP_PROVIDER_PREFIX)
+    }
+
+    private fun extractPayloadValue(renderer: Any, payloadName: String): String? {
+        val lists = invokeNoArg(renderer, "getPresentationLists") as? Iterable<*> ?: return null
+        for (listItem in lists) {
+            if (listItem == null) continue
+            val model = invokeNoArg(listItem, "getModel") ?: continue
+            val payloads = invokeNoArg(model, "getPayloads") as? Iterable<*> ?: continue
+            for (payload in payloads) {
+                if (payload == null) continue
+                val name = invokeNoArg(payload, "getPayloadName") as? String ?: continue
+                if (name != payloadName) continue
+                val payloadObj = invokeNoArg(payload, "getPayload") ?: continue
+                if (payloadObj is StringInlayActionPayload) {
+                    return payloadObj.text
+                }
+                val text = invokeNoArg(payloadObj, "getText") as? String
+                if (!text.isNullOrBlank()) return text
+            }
+        }
+        return null
+    }
+
+    private fun invokeNoArg(target: Any, methodName: String): Any? {
+        return runCatching {
+            target.javaClass.methods.firstOrNull { it.name == methodName && it.parameterCount == 0 }?.invoke(target)
+        }.getOrNull()
     }
 }
 

@@ -123,6 +123,12 @@ private class DepLensInlayHoverPopupListener(private val project: Project) : Edi
             return
         }
 
+        // While the current popup is still within the allowed transition corridor,
+        // don't switch to another line's inlay just because the cursor crossed it.
+        if (shownHint != null && shownInlay != null && inlay != shownInlay && shouldKeepHintByGeometry(event.editor)) {
+            return
+        }
+
         if (shownInlay == inlay && shownText == hoverText && shownGithubUrl == githubUrl && shownRetryToken == retryToken) {
             return
         }

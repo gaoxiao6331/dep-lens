@@ -15,11 +15,21 @@ import com.intellij.openapi.vfs.VirtualFile
 object UiUtils {
 
     const val HOVER_TEXT_PAYLOAD_NAME: String = "deplens.hover.text"
+    const val GITHUB_URL_PAYLOAD_NAME: String = "deplens.github.url"
 
-    fun addInlay(sink: InlayTreeSink, offset: Int, displayText: String, hoverText: String = displayText) {
-        val payloads = listOf(
-            InlayPayload(HOVER_TEXT_PAYLOAD_NAME, StringInlayActionPayload(hoverText))
-        )
+    fun addInlay(
+        sink: InlayTreeSink,
+        offset: Int,
+        displayText: String,
+        hoverText: String = displayText,
+        githubUrl: String? = null
+    ) {
+        val payloads = buildList {
+            add(InlayPayload(HOVER_TEXT_PAYLOAD_NAME, StringInlayActionPayload(hoverText)))
+            if (!githubUrl.isNullOrBlank()) {
+                add(InlayPayload(GITHUB_URL_PAYLOAD_NAME, StringInlayActionPayload(githubUrl)))
+            }
+        }
 
         sink.addPresentation(
             InlineInlayPosition(offset, relatedToPrevious = true),

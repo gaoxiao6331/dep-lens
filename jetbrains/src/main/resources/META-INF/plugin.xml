@@ -37,8 +37,4 @@
     <extensions defaultExtensionNs="org.jetbrains.kotlin">
         <supportsKotlinPluginMode supportsK2="true"/>
     </extensions>
-
-    <extensions defaultExtensionNs="com.intellij">
-        <postStartupActivity implementation="deplens.ui.DepLensInlayHoverPopupActivity"/>
-    </extensions>
 </idea-plugin>

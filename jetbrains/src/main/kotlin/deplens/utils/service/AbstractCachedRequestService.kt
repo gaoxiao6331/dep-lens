@@ -40,6 +40,12 @@ abstract class AbstractCachedRequestService<T : CachedEntry> {
     private val requestManager = RequestManager()
     private val cache = ConcurrentHashMap<String, T>()
     private val runningRequests = ConcurrentHashMap<String, Call>()
+    private val explicitRetryPendingUntil = ConcurrentHashMap<String, Long>()
+
+    private companion object {
+        // Keep retry loading state visible briefly so repeated clicks always have clear UI feedback.
+        const val RETRY_PENDING_MIN_MILLIS = 800L
+    }
 
     private val cacheFile: File by lazy {
         File(PathManager.getSystemPath(), cacheFileName).apply {
@@ -55,20 +61,30 @@ abstract class AbstractCachedRequestService<T : CachedEntry> {
     }
 
     protected fun getCachedInfo(key: String): ResultWrapper<T> {
+        val now = System.currentTimeMillis()
+        val pendingUntil = explicitRetryPendingUntil[key]
+        if (pendingUntil != null) {
+            if (pendingUntil > now) {
+                return ResultWrapper(Result.PENDING, null)
+            }
+            explicitRetryPendingUntil.remove(key, pendingUntil)
+        }
+
+        // Show loading while a request is in flight, even if stale cache exists.
+        // This is important for explicit retry UX: user should see immediate "loading".
+        val running = runningRequests[key]
+        if (running != null && !running.isCanceled()) {
+            return ResultWrapper(Result.PENDING, null)
+        }
+
         val info = cache[key]
         if (info != null) {
-            val now = System.currentTimeMillis()
             if (now - info.fetchedAt > cacheTtlMillis) {
                 cache.remove(key)
                 saveCacheToDiskAsync()
             } else {
                 return ResultWrapper(Result.SUCCESS, info)
             }
-        }
-
-        val running = runningRequests[key]
-        if (running != null && !running.isCanceled()) {
-            return ResultWrapper(Result.PENDING, null)
         }
 
         return if (isFailure(key)) {
@@ -78,8 +94,13 @@ abstract class AbstractCachedRequestService<T : CachedEntry> {
         }
     }
 
-    protected fun fetchByKey(key: String, onFinish: (() -> Unit)? = null) {
-        if (!requestManager.shouldRequest(key)) {
+    protected fun fetchByKey(
+        key: String,
+        onFinish: (() -> Unit)? = null,
+        forceNewRequest: Boolean = false
+    ) {
+        // Explicit user retry must always trigger a real network attempt, even after failures.
+        if (!forceNewRequest && !requestManager.shouldRequest(key)) {
             logger.debug("should not request: $key")
             onFinish?.invoke()
             return
@@ -96,13 +117,27 @@ abstract class AbstractCachedRequestService<T : CachedEntry> {
             if (existing == null) {
                 break
             }
+            if (forceNewRequest) {
+                // Retry path: replace any existing in-flight call with a fresh one.
+                if (!existing.isCanceled()) {
+                    existing.cancel()
+                }
+                runningRequests.remove(key, existing)
+                continue
+            }
             if (!existing.isCanceled()) {
                 logger.debug("Request already running: $key")
+                // Trigger a UI refresh so inlay can reflect current pending state.
+                onFinish?.invoke()
                 return
             }
             runningRequests.remove(key, existing)
         }
 
+        // Notify once when request enters running state so UI can switch to loading immediately.
+        onFinish?.invoke()
+
+        val hadCacheBeforeRequest = cache.containsKey(key)
         var shouldNotify = false
         try {
             call.execute().use { response ->
@@ -135,6 +170,10 @@ abstract class AbstractCachedRequestService<T : CachedEntry> {
                 } else {
                     shouldNotify = true
                 }
+            } else if (hadCacheBeforeRequest && !shouldNotify) {
+                // Retry on existing cache may fail/cancel without changing cache.
+                // Still refresh UI so the pending/loading state can settle back.
+                shouldNotify = true
             }
 
             runningRequests.remove(key, call)
@@ -147,7 +186,21 @@ abstract class AbstractCachedRequestService<T : CachedEntry> {
     protected fun retryByKey(key: String, onFinish: (() -> Unit)? = null) {
         // Explicit retry should bypass previous failure quota and try immediately.
         requestManager.clearFailure(key)
-        fetchByKey(key, onFinish)
+        explicitRetryPendingUntil[key] = System.currentTimeMillis() + RETRY_PENDING_MIN_MILLIS
+        // Ensure UI re-checks state after the minimal pending window, otherwise
+        // a fast request can leave the inlay stuck on loading until next manual refresh.
+        AppExecutorUtil.getAppScheduledExecutorService().schedule(
+            { onFinish?.invoke() },
+            RETRY_PENDING_MIN_MILLIS,
+            TimeUnit.MILLISECONDS
+        )
+        // Cancel current in-flight request for the same key so retry starts a fresh pull.
+        runningRequests.remove(key)?.let { running ->
+            if (!running.isCanceled()) {
+                running.cancel()
+            }
+        }
+        fetchByKey(key, onFinish, forceNewRequest = true)
     }
 
     fun hasFailure(key: String): Boolean = requestManager.hasFailure(key)

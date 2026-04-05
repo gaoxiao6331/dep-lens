@@ -41,8 +41,14 @@ class DepLensTooltipLinkHandler : TooltipLinkHandler() {
         val owner = parts[0]
         val repo = parts[1]
 
-        // Force a retry path (clears failure quota internally) and refresh inlay after completion.
-        ProgressUtils.runBackground(editor.project ?: return, "DepLens: Retry GitHub $owner/$repo") {
+        // Refresh once before dispatch so users see loading state immediately after clicking retry.
+        refreshInlays(editor)
+        ProgressUtils.runBackground(
+            editor.project ?: return,
+            "DepLens: Retry GitHub $owner/$repo",
+            // Keep task visible briefly; otherwise fast retries look like "no request happened".
+            minVisibleMillis = 700
+        ) {
             GithubRepoInfoService.retryRepoInfo(owner, repo) {
                 refreshInlays(editor)
             }
@@ -52,7 +58,13 @@ class DepLensTooltipLinkHandler : TooltipLinkHandler() {
     private fun retryNpm(packageName: String, editor: Editor) {
         if (packageName.isBlank()) return
 
-        ProgressUtils.runBackground(editor.project ?: return, "DepLens: Retry npm $packageName") {
+        refreshInlays(editor)
+        ProgressUtils.runBackground(
+            editor.project ?: return,
+            "DepLens: Retry npm $packageName",
+            // Keep task visible briefly; otherwise fast retries look like "no request happened".
+            minVisibleMillis = 700
+        ) {
             NpmPkgInfoService.retryPackageInfo(packageName) {
                 refreshInlays(editor)
             }

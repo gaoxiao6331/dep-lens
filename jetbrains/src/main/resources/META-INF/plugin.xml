@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>deplens</id>
     <name>Dep Lens</name>
-    <version>0.2.2</version>
+    <version>0.2.3</version>
     <vendor email="gaoxiao6331@163.com">gaoxiao</vendor>
     <description><![CDATA[
     <p><b>Dep Lens</b> shows dependency health signals directly in your editor so you can quickly evaluate third-party packages while coding.</p>

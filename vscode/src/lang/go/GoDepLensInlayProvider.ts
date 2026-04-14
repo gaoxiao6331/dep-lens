@@ -1,23 +1,27 @@
 import * as vscode from "vscode";
-import { I18nKey } from "../../common/Const";
 import { Result } from "../../common/Result";
-import { GithubRepoInfoService } from "../../utils/GithubRepoInfoService";
+import { GithubRepoInfoService } from "../../utils/service/GithubRepoInfoService";
 import { I18n } from "../../utils/I18n";
+import { BaseDepLensInlayProvider } from "../BaseDepLensInlayProvider";
+import { GithubInlayUtils } from "../../utils/inlay/GithubInlayUtils";
 
 const reGithubImport = /"github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)(?:\/[^"]*)?"/;
 const reGithubMod = /github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)/;
 
-export class GoDepLensInlayProvider implements vscode.InlayHintsProvider {
-  private emitter = new vscode.EventEmitter<void>();
-  readonly onDidChangeInlayHints = this.emitter.event;
+export class GoDepLensInlayProvider extends BaseDepLensInlayProvider {
 
   constructor() {
+    super();
     GithubRepoInfoService.getInstance().onDidUpdateRepoInfo(() => {
       this.emitter.fire();
     });
   }
 
-  async provideInlayHints(
+  protected isFileSupported(document: vscode.TextDocument): boolean {
+    return document.languageId === "go" || document.fileName.endsWith("go.mod");
+  }
+
+  protected async provideInlayHintsForDocument(
     document: vscode.TextDocument,
     range: vscode.Range,
     token: vscode.CancellationToken,
@@ -43,24 +47,13 @@ export class GoDepLensInlayProvider implements vscode.InlayHintsProvider {
       if (endIdx < 0) continue;
       const pos = new vscode.Position(line, endIdx + (isGoMod ? 0 : 1));
 
-      const res = GithubRepoInfoService.getInstance().getRepoInfo(owner, repo);
-
-      let label = "";
-      if (res.result === Result.NONE) {
-        label = I18n.message(I18nKey.loading);
-        GithubRepoInfoService.getInstance().fetchRepoInfo(owner, repo);
-      } else if (res.result === Result.SUCCESS && res.data) {
-        const data = res.data;
-        const stars = data.stars;
-        const updated = data.updatedDate;
-        label = `⭐ ${stars} • ${I18n.message(I18nKey.lastUpdated)} ${updated}`;
-      } else {
-        label = I18n.message(I18nKey.failedToLoad);
-      }
-
-      const hint = new vscode.InlayHint(pos, `  ${label}`);
-      hint.tooltip = label;
-      hints.push(hint);
+      GithubInlayUtils.addGithubInlay(
+        document,
+        hints,
+        pos,
+        owner,
+        repo
+      );
     }
     return hints;
   }

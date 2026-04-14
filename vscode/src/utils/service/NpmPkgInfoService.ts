@@ -34,7 +34,6 @@ export class NpmPkgInfoService extends AbstractCachedRequestService<NpmPackageIn
 
   private constructor() {
     super(
-      new Logger("NpmPkgInfoService"),
       "deplens/npm_package_cache.json",
       null // No serializer for now
     );
@@ -136,9 +135,13 @@ export class NpmPkgInfoService extends AbstractCachedRequestService<NpmPackageIn
     });
   }
 
-  async parseResponseBody(key: string, body: string): Promise<NpmPackageInfo | null> {
+  parseResponseBody(key: string, body: string): Promise<NpmPackageInfo | null> {
+    return this.parseResponseBodyAsync(key, body);
+  }
+
+  private async parseResponseBodyAsync(key: string, body: string): Promise<NpmPackageInfo | null> {
     try {
-      const registryInfo = JSON.parse(body) as NpmRegistryResponse;
+        const registryInfo = JSON.parse(body) as NpmRegistryResponse;
       
       // Fetch download stats in parallel
       const downloadsResponse = await fetch(`https://api.npmjs.org/downloads/point/last-week/${key}`);

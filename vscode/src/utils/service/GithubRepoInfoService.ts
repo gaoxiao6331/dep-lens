@@ -26,7 +26,7 @@ export class GithubRepoInfoService {
   private cacheFile = "";
   private _onDidUpdateRepoInfo = new vscode.EventEmitter<void>();
   public readonly onDidUpdateRepoInfo = this._onDidUpdateRepoInfo.event;
-  private logger = new Logger("GithubRepoInfoService");
+  private logger = Logger.getInstance();
 
   private constructor() {}
 

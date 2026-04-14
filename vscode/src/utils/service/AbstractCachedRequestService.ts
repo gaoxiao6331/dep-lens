@@ -18,18 +18,19 @@ export abstract class AbstractCachedRequestService<T extends CachedEntry> {
   protected failureCounts = new Map<string, number>();
   protected maxFailureCount = 3;
   protected cacheExpiryMillis = 24 * 60 * 60 * 1000; // 24 hours
+  protected logger: Logger;
 
   constructor(
-    protected logger: Logger,
     protected cacheFileName: string,
     protected dataSerializer: any
   ) {
+    this.logger = Logger.getInstance();
     this.initCache();
   }
 
   abstract initCache(): void;
   abstract createRequestCall(key: string): Promise<Response>;
-  abstract parseResponseBody(key: string, body: string): T | null;
+  abstract parseResponseBody(key: string, body: string): Promise<T | null>;
 
   getCachedInfo(key: string): ResultWrapper<T> {
     const cached = this.cache.get(key);
@@ -74,7 +75,7 @@ export abstract class AbstractCachedRequestService<T extends CachedEntry> {
       }
 
       const body = await response.text();
-      const data = this.parseResponseBody(key, body);
+      const data = await this.parseResponseBody(key, body);
 
       if (data) {
         this.cache.set(key, new ResultWrapper(Result.SUCCESS, data));
@@ -84,7 +85,7 @@ export abstract class AbstractCachedRequestService<T extends CachedEntry> {
         throw new Error("Failed to parse response");
       }
     } catch (error) {
-      this.logger.warn(`[Request Failed] ${key}:`, error);
+        this.logger.warn(`[Request Failed] ${key}: ${error}`);
       
       const currentFailures = this.failureCounts.get(key) || 0;
       this.failureCounts.set(key, currentFailures + 1);

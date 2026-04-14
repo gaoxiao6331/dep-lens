@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { Result } from "../../common/Result";
-import { GithubRepoInfoService } from "../../utils/GithubRepoInfoService";
+import { GithubRepoInfoService } from "../../utils/service/GithubRepoInfoService";
 import { I18n } from "../../utils/I18n";
 import { I18nKey } from "../../common/I18nKey";
 import { BaseDepLensInlayProvider } from "../BaseDepLensInlayProvider";
@@ -70,11 +70,6 @@ export class GradleDepLensInlayProvider extends BaseDepLensInlayProvider {
     
     const hint = new vscode.InlayHint(position, `  ${label}`);
     hint.tooltip = `Gradle dependency: ${groupId}:${artifactId}\n\n[View on Maven Central](${repoUrl})`;
-    hint.command = {
-      command: "depLens.retry",
-      title: "Retry",
-      arguments: [`maven:${groupId}:${artifactId}`]
-    };
 
     return hint;
   }

@@ -33,7 +33,8 @@ export class NpmInlayUtils {
         }
 
         ProgressUtils.runBackground(
-          `DepLens: Fetch npm ${pkg}`
+          `DepLens: Fetch npm ${pkg}`,
+          () => NpmPkgInfoService.getInstance().fetchPackageInfo(pkg, () => {})
         ).then(() => {
           try {
             NpmPkgInfoService.getInstance().fetchPackageInfo(pkg, () => {
@@ -42,7 +43,7 @@ export class NpmInlayUtils {
 
               if (updatedNpmRes.result === Result.SUCCESS) {
                 const url = updatedNpmRes.data?.githubUrl || "";
-                const repoKey = GithubRepoInfoService.getInstance().getRepoKey(url);
+                const repoKey = GithubRepoInfoService.getRepoKey(url);
                 
                 if (repoKey) {
                   const repoRes = GithubRepoInfoService.getInstance().getRepoInfo(repoKey.owner, repoKey.repo);
@@ -66,7 +67,7 @@ export class NpmInlayUtils {
           
           // Add GitHub info if available
           const url = npmData.githubUrl || "";
-          const repoKey = GithubRepoInfoService.getInstance().getRepoKey(url);
+          const repoKey = GithubRepoInfoService.getRepoKey(url);
           if (repoKey) {
             const repoRes = GithubRepoInfoService.getInstance().getRepoInfo(repoKey.owner, repoKey.repo);
             if (repoRes.result === Result.SUCCESS && repoRes.data) {
@@ -75,7 +76,8 @@ export class NpmInlayUtils {
             } else if (repoRes.result === Result.NONE && !dispatchedGithubFetch) {
               dispatchedGithubFetch = true;
               ProgressUtils.runBackground(
-                `DepLens: Fetch GitHub ${repoKey.owner}/${repoKey.repo}`
+                `DepLens: Fetch GitHub ${repoKey.owner}/${repoKey.repo}`,
+                () => GithubRepoInfoService.getInstance().fetchRepoInfo(repoKey.owner, repoKey.repo)
               ).then(() => {
                 GithubRepoInfoService.getInstance().fetchRepoInfo(repoKey.owner, repoKey.repo);
               });

@@ -25,7 +25,8 @@ export class GithubInlayUtils {
       case Result.NONE:
         label = I18n.message(I18nKey.loadingGithub);
         ProgressUtils.runBackground(
-          `DepLens: Fetch GitHub ${owner}/${repo}`
+          `DepLens: Fetch GitHub ${owner}/${repo}`,
+          () => GithubRepoInfoService.getInstance().fetchRepoInfo(owner, repo)
         ).then(() => {
           try {
             GithubRepoInfoService.getInstance().fetchRepoInfo(owner, repo);

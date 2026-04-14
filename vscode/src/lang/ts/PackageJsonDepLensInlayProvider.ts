@@ -4,6 +4,7 @@ import { I18n } from "../../utils/I18n";
 import { I18nKey } from "../../common/I18nKey";
 import { BaseDepLensInlayProvider } from "../BaseDepLensInlayProvider";
 import { NpmInlayUtils } from "../../utils/inlay/NpmInlayUtils";
+import { NpmPkgInfoService } from "../../utils/service/NpmPkgInfoService";
 
 const DEP_SECTIONS = new Set([
   "dependencies",
@@ -94,11 +95,6 @@ export class PackageJsonDepLensInlayProvider extends BaseDepLensInlayProvider {
 
     const hint = new vscode.InlayHint(position, `  ${label}`);
     hint.tooltip = label;
-    hint.command = {
-      command: "depLens.retry",
-      title: "Retry",
-      arguments: [`npm:${pkgName}`]
-    };
 
     return hint;
   }

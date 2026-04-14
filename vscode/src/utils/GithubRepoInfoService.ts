@@ -3,10 +3,12 @@ import * as path from "node:path";
 import { fetch } from "undici";
 import * as vscode from "vscode";
 import { RETRY_DELAY_MILLIS } from "../common/Const";
-import { Result, type ResultWrapper } from "../common/Result";
+import { Result, ResultWrapper } from "../common/Result";
 import { Formatter } from "./Formatter";
-import { logger } from "./Logger";
+import { Logger } from "./Logger";
 import { RequestManager } from "./RequestManager";
+import { AbstractCachedRequestService } from "./service/AbstractCachedRequestService";
+import { ResultWrapper } from "./service/AbstractCachedRequestService";
 
 export interface GithubRepoInfo {
   stars: string;
@@ -20,12 +22,50 @@ interface GithubApiResponse {
   pushed_at: string;
 }
 
+interface NpmPackageInfo {
+  stars: string;
+  originalStars: number;
+  updatedDate: string;
+  fetchedAt: number;
+}
+
+interface MavenInfo {
+  stars: string;
+  originalStars: number;
+  updatedDate: string;
+  fetchedAt: number;
+}
+
+interface NpmApiResponse {
+  repository?: {
+    url?: string;
+  };
+  time?: {
+    modified?: string;
+  };
+}
+
+interface MavenMetadata {
+  // 简化的 Maven 元数据接口
+  repositoryUrl?: string;
+  lastModified?: string;
+}
+
 export class GithubRepoInfoService {
   private static instance: GithubRepoInfoService;
   private cache = new Map<string, GithubRepoInfo>();
+  private npmCache = new Map<string, NpmPackageInfo>();
+  private mavenCache = new Map<string, MavenInfo>();
   private requestManager = new RequestManager();
+  private npmRequestManager = new RequestManager();
+  private mavenRequestManager = new RequestManager();
+  private logger = new Logger("GithubRepoInfoService");
   private runningRequests = new Map<string, Promise<void>>();
+  private npmRunningRequests = new Map<string, Promise<void>>();
+  private mavenRunningRequests = new Map<string, Promise<void>>();
   private cacheFile = "";
+  private npmCacheFile = "";
+  private mavenCacheFile = "";
   private _onDidUpdateRepoInfo = new vscode.EventEmitter<void>();
   public readonly onDidUpdateRepoInfo = this._onDidUpdateRepoInfo.event;
 
@@ -44,7 +84,11 @@ export class GithubRepoInfoService {
       await fs.mkdir(storagePath, { recursive: true });
     } catch {}
     this.cacheFile = path.join(storagePath, "github_repo_cache.json");
+    this.npmCacheFile = path.join(storagePath, "npm_package_cache.json");
+    this.mavenCacheFile = path.join(storagePath, "maven_repo_cache.json");
     await this.loadCacheFromDisk();
+    await this.loadNpmCacheFromDisk();
+    await this.loadMavenCacheFromDisk();
   }
 
   private async loadCacheFromDisk() {
@@ -76,8 +120,74 @@ export class GithubRepoInfoService {
           this.saveCacheToDiskAsync();
         }
       }
+      } catch (e) {
+        this.logger.warn(`Failed to load github repo cache: ${e}`);
+      }
+  }
+
+  private async loadNpmCacheFromDisk() {
+    try {
+      try {
+        await fs.access(this.npmCacheFile);
+      } catch {
+        return;
+      }
+
+      const content = await fs.readFile(this.npmCacheFile, "utf-8");
+      if (content) {
+        const map = JSON.parse(content);
+        const now = Date.now();
+        const threeDaysMillis = 3 * 24 * 60 * 60 * 1000;
+        let hasExpired = false;
+
+        for (const key in map) {
+          const val = map[key] as NpmPackageInfo;
+          if (now - val.fetchedAt > threeDaysMillis) {
+            hasExpired = true;
+          } else {
+            this.npmCache.set(key, val);
+          }
+        }
+
+        if (hasExpired) {
+          this.saveNpmCacheToDiskAsync();
+        }
+      }
     } catch (e) {
-      logger.warn(`Failed to load github repo cache: ${e}`);
+        this.logger.warn(`Failed to load npm package cache: ${e}`);
+    }
+  }
+
+  private async loadMavenCacheFromDisk() {
+    try {
+      try {
+        await fs.access(this.mavenCacheFile);
+      } catch {
+        return;
+      }
+
+      const content = await fs.readFile(this.mavenCacheFile, "utf-8");
+      if (content) {
+        const map = JSON.parse(content);
+        const now = Date.now();
+        const threeDaysMillis = 3 * 24 * 60 * 60 * 1000;
+        let hasExpired = false;
+
+        for (const key in map) {
+          const val = map[key] as MavenInfo;
+          if (now - val.fetchedAt > threeDaysMillis) {
+            hasExpired = true;
+          } else {
+            this.mavenCache.set(key, val);
+          }
+        }
+
+        if (hasExpired) {
+          this.saveMavenCacheToDiskAsync();
+        }
+      }
+    } catch (e) {
+        this.logger.warn(`Failed to load maven repo cache: ${e}`);
     }
   }
 
@@ -86,7 +196,7 @@ export class GithubRepoInfoService {
       const obj = Object.fromEntries(this.cache);
       await fs.writeFile(this.cacheFile, JSON.stringify(obj));
     } catch (e) {
-      logger.warn(`Failed to save github repo cache: ${e}`);
+        this.logger.warn(`Failed to save github repo cache: ${e}`);
     }
   }
 
@@ -135,7 +245,7 @@ export class GithubRepoInfoService {
         });
 
         if (!resp.ok) {
-          logger.warn(`GitHub API failed: ${resp.status}`);
+          this.logger.warn(`GitHub API failed: ${resp.status}`);
           return;
         }
 
@@ -151,13 +261,13 @@ export class GithubRepoInfoService {
           fetchedAt: Date.now(),
         };
 
-        logger.info(`[Success] ${key}, stars: ${repoInfo.stars}, updated: ${repoInfo.updatedDate}`);
+        this.logger.info(`[Success] ${key}, stars: ${repoInfo.stars}, updated: ${repoInfo.updatedDate}`);
 
         this.cache.set(key, repoInfo);
         this.saveCacheToDiskAsync();
         this._onDidUpdateRepoInfo.fire();
       } catch (e) {
-        logger.warn(`GitHub request error: ${key} ${e}`);
+        this.logger.warn(`GitHub request error: ${key} ${e}`);
       } finally {
         if (!this.cache.has(key)) {
           this.requestManager.updateFailed(key);

@@ -1,8 +1,8 @@
 {
   "name": "dep-lens",
   "displayName": "Dep Lens",
-  "description": "View details of third-party dependencies",
-  "version": "0.1.1",
+  "description": "Dep Lens shows dependency health signals directly in your editor so you can quickly evaluate third-party packages while coding.",
+  "version": "0.1.2",
   "icon": "docs/img/logo_rect.png",
   "publisher": "gaoxiao",
   "private": true,
@@ -18,7 +18,14 @@
     "Other"
   ],
   "activationEvents": [
-    "onLanguage:go"
+    "onLanguage:go",
+    "onLanguage:java",
+    "onLanguage:kotlin",
+    "onLanguage:javascript",
+    "onLanguage:typescript",
+    "onLanguage:groovy",
+    "onLanguage:json",
+    "onLanguage:xml"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -47,6 +54,10 @@
       {
         "command": "depLens.clearCache",
         "title": "Dep Lens: clearCache"
+      },
+      {
+        "command": "depLens.retry",
+        "title": "Dep Lens: Retry loading dependency info"
       }
     ],
     "languages": [
@@ -55,6 +66,48 @@
         "aliases": [
           "Go",
           "golang"
+        ]
+      },
+      {
+        "id": "java",
+        "aliases": [
+          "Java"
+        ]
+      },
+      {
+        "id": "kotlin",
+        "aliases": [
+          "Kotlin"
+        ]
+      },
+      {
+        "id": "javascript",
+        "aliases": [
+          "JavaScript"
+        ]
+      },
+      {
+        "id": "typescript",
+        "aliases": [
+          "TypeScript"
+        ]
+      },
+      {
+        "id": "groovy",
+        "aliases": [
+          "Groovy"
+        ]
+      },
+      {
+        "id": "json",
+        "aliases": [
+          "JSON"
+        ]
+      },
+      {
+        "id": "xml",
+        "aliases": [
+          "XML"
         ]
       }
     ]

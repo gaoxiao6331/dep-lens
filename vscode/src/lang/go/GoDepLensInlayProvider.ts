@@ -1,7 +1,5 @@
 import * as vscode from "vscode";
-import { Result } from "../../common/Result";
 import { GithubRepoInfoService } from "../../utils/service/GithubRepoInfoService";
-import { I18n } from "../../utils/I18n";
 import { BaseDepLensInlayProvider } from "../BaseDepLensInlayProvider";
 import { GithubInlayUtils } from "../../utils/inlay/GithubInlayUtils";
 
@@ -47,12 +45,10 @@ export class GoDepLensInlayProvider extends BaseDepLensInlayProvider {
       if (endIdx < 0) continue;
       const pos = new vscode.Position(line, endIdx + (isGoMod ? 0 : 1));
 
-      GithubInlayUtils.addGithubInlay(
-        document,
+      GithubInlayUtils.addRepoInlay(
         hints,
         pos,
-        owner,
-        repo
+        { owner, repo }
       );
     }
     return hints;

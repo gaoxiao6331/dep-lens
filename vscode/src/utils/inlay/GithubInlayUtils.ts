@@ -2,37 +2,35 @@ import * as vscode from "vscode";
 import { I18nKey } from "../../common/I18nKey";
 import { Result } from "../../common/Result";
 import { GithubRepoInfoService } from "../service/GithubRepoInfoService";
+import { RepoKey } from "../service/RepoKey";
 import { I18n } from "../I18n";
 import { ProgressUtils } from "../ProgressUtils";
 import { UiUtils } from "../UiUtils";
 
 export class GithubInlayUtils {
-  static addGithubInlay(
-    document: vscode.TextDocument,
+  static addRepoInlay(
     hints: vscode.InlayHint[],
     position: vscode.Position,
-    owner: string,
-    repo: string
+    repoKey: RepoKey,
   ): void {
-    const repoKey = `${owner}/${repo}`;
+    const { owner, repo } = repoKey;
+    const repoId = `${owner}/${repo}`;
     const res = GithubRepoInfoService.getInstance().getRepoInfo(owner, repo);
 
     let label = "";
-    let retryToken = `github:${owner}/${repo}`;
-    let githubUrl = `https://github.com/${owner}/${repo}`;
+    const retryToken = `github:${owner}/${repo}`;
+    const githubUrl = `https://github.com/${owner}/${repo}`;
 
     switch (res.result) {
       case Result.NONE:
         label = I18n.message(I18nKey.loadingGithub);
-        ProgressUtils.runBackground(
-          `DepLens: Fetch GitHub ${owner}/${repo}`,
-          () => GithubRepoInfoService.getInstance().fetchRepoInfo(owner, repo)
-        ).then(() => {
-          try {
-            GithubRepoInfoService.getInstance().fetchRepoInfo(owner, repo);
-          } catch (e) {
-            console.warn(`Failed to load repo info for ${repoKey}`, e);
-          }
+        void Promise.resolve(
+          ProgressUtils.runBackground(
+            `DepLens: Fetch GitHub ${owner}/${repo}`,
+            () => GithubRepoInfoService.getInstance().fetchRepoInfo(owner, repo),
+          ),
+        ).catch((error: unknown) => {
+          console.warn(`Failed to load repo info for ${repoId}`, error);
         });
         break;
 

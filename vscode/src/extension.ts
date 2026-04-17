@@ -91,8 +91,33 @@ export async function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("depLens.clearCache", () => {
-      GithubRepoInfoService.getInstance().clearCache();
-      vscode.window.showInformationMessage("DepLens cache cleared");
+      void Promise.all([
+        GithubRepoInfoService.getInstance().clearCache(),
+        NpmPkgInfoService.getInstance().clearCache(),
+      ]).then(() => {
+        vscode.window.showInformationMessage("DepLens cache cleared");
+      });
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("depLens.retry", async (retryToken?: string) => {
+      if (!retryToken) {
+        return;
+      }
+
+      const [type, value] = retryToken.split(":");
+      if (type === "npm" && value) {
+        await NpmPkgInfoService.getInstance().retryPackageInfo(value);
+        return;
+      }
+
+      if (type === "github" && value) {
+        const [owner, repo] = value.split("/");
+        if (owner && repo) {
+          await GithubRepoInfoService.getInstance().retryRepoInfo(owner, repo);
+        }
+      }
     }),
   );
 }

@@ -17,7 +17,7 @@ export abstract class AbstractCachedRequestService<T extends CachedEntry> {
   protected runningRequests = new Set<string>();
   protected failureCounts = new Map<string, number>();
   protected maxFailureCount = 3;
-  protected cacheExpiryMillis = 24 * 60 * 60 * 1000; // 24 hours
+  protected cacheExpiryMillis = 3 * 24 * 60 * 60 * 1000;
   protected logger: Logger;
 
   constructor(
@@ -28,7 +28,7 @@ export abstract class AbstractCachedRequestService<T extends CachedEntry> {
     this.initCache();
   }
 
-  abstract initCache(): void;
+  abstract initCache(): void | Promise<void>;
   abstract createRequestCall(key: string): Promise<Response>;
   abstract parseResponseBody(key: string, body: string): Promise<T | null>;
 
@@ -108,6 +108,12 @@ export abstract class AbstractCachedRequestService<T extends CachedEntry> {
     // Explicit retry: bypass failure quota and trigger immediate fetch
     this.failureCounts.delete(key);
     await this.fetchByKey(key, onFinish);
+  }
+
+  clearCache(): void {
+    this.cache.clear();
+    this.failureCounts.clear();
+    this.runningRequests.clear();
   }
 
   shutdown(): void {

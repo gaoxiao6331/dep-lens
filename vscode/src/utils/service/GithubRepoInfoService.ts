@@ -126,7 +126,11 @@ export class GithubRepoInfoService {
       }
     }
 
-    if (this.requestManager.get(key) === false) {
+    const runningState = this.requestManager.get(key);
+    if (runningState === true) {
+      return { result: Result.PENDING };
+    }
+    if (runningState === false) {
       return { result: Result.FAILURE };
     }
     return { result: Result.NONE };
@@ -136,6 +140,7 @@ export class GithubRepoInfoService {
     const key = `${owner}/${repo}`;
     if (this.requestManager.get(key)) return;
     this.requestManager.set(key, true);
+    this._onDidUpdateRepoInfo.fire();
 
     try {
       const githubToken =
@@ -190,9 +195,16 @@ export class GithubRepoInfoService {
     }
   }
 
+  async retryRepoInfo(owner: string, repo: string): Promise<void> {
+    const key = `${owner}/${repo}`;
+    this.requestManager.delete(key);
+    await this.fetchRepoInfo(owner, repo);
+  }
+
   async clearCache() {
     this.cache.clear();
     await this.saveCacheToDiskAsync();
+    this._onDidUpdateRepoInfo.fire();
   }
 
   shutdown() {

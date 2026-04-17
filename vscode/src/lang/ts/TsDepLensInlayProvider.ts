@@ -6,6 +6,7 @@ import { BaseDepLensInlayProvider } from "../BaseDepLensInlayProvider";
 import { TsImportResolver } from "../../utils/resolver/TsImportResolver";
 import { NpmInlayUtils } from "../../utils/inlay/NpmInlayUtils";
 import { NpmPkgInfoService } from "../../utils/service/NpmPkgInfoService";
+import { GithubRepoInfoService } from "../../utils/service/GithubRepoInfoService";
 
 
 export class TsDepLensInlayProvider extends BaseDepLensInlayProvider {
@@ -13,6 +14,9 @@ export class TsDepLensInlayProvider extends BaseDepLensInlayProvider {
   constructor() {
     super();
     NpmPkgInfoService.getInstance().onDidUpdatePackageInfo(() => {
+      this.emitter.fire();
+    });
+    GithubRepoInfoService.getInstance().onDidUpdateRepoInfo(() => {
       this.emitter.fire();
     });
   }
@@ -46,7 +50,6 @@ export class TsDepLensInlayProvider extends BaseDepLensInlayProvider {
       const pkg = TsImportResolver.getPkgName(dep);
       const position = new vscode.Position(line, text.length);
        NpmInlayUtils.addNpmDepInlay(
-         document,
          hints,
          pkg,
          position

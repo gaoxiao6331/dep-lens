@@ -5,6 +5,7 @@ import { I18nKey } from "../../common/I18nKey";
 import { BaseDepLensInlayProvider } from "../BaseDepLensInlayProvider";
 import { NpmInlayUtils } from "../../utils/inlay/NpmInlayUtils";
 import { NpmPkgInfoService } from "../../utils/service/NpmPkgInfoService";
+import { GithubRepoInfoService } from "../../utils/service/GithubRepoInfoService";
 
 const DEP_SECTIONS = new Set([
   "dependencies",
@@ -20,6 +21,9 @@ export class PackageJsonDepLensInlayProvider extends BaseDepLensInlayProvider {
   constructor() {
     super();
     NpmPkgInfoService.getInstance().onDidUpdatePackageInfo(() => {
+      this.emitter.fire();
+    });
+    GithubRepoInfoService.getInstance().onDidUpdateRepoInfo(() => {
       this.emitter.fire();
     });
   }
@@ -60,7 +64,6 @@ export class PackageJsonDepLensInlayProvider extends BaseDepLensInlayProvider {
             if (endQuoteIndex !== -1) {
               const pos = document.positionAt(endQuoteIndex + 1);
               NpmInlayUtils.addNpmDepInlay(
-                document,
                 hints,
                 pkgName,
                 pos

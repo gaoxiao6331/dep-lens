@@ -1,15 +1,15 @@
 import * as vscode from "vscode";
-import { Result } from "../../common/Result";
 import { GithubRepoInfoService } from "../../utils/service/GithubRepoInfoService";
-import { I18n } from "../../utils/I18n";
-import { I18nKey } from "../../common/I18nKey";
 import { BaseDepLensInlayProvider } from "../BaseDepLensInlayProvider";
+import { GithubInlayUtils } from "../../utils/inlay/GithubInlayUtils";
+import { MavenRepoResolver } from "../../utils/resolver/MavenRepoResolver";
 
-const DEP_NOTATION_REGEX = /(implementation|api|compileOnly|runtimeOnly|testImplementation|testCompileOnly|testRuntimeOnly|kapt|annotationProcessor|classpath|compile|testCompile)\s*\(?\s*['"]([^:'"]+):([^:'"]+):([^'"\s\)]+)['"]\s*\)?/g;
-const GROOVY_BLOCK_REGEX = /dependencies\s*\{[^}]*\}/gs;
+const DEP_NOTATION_REGEX =
+  /(implementation|api|compileOnly|runtimeOnly|testImplementation|testCompileOnly|testRuntimeOnly|kapt|annotationProcessor|classpath|compile|testCompile)\s*\(?\s*['"]([A-Za-z0-9_.-]+):([A-Za-z0-9_.-]+):([A-Za-z0-9_.\-+$]+)[^'"\s\)]*['"]/g;
+const MAP_NOTATION_REGEX =
+  /(implementation|api|compileOnly|runtimeOnly|testImplementation|testCompileOnly|testRuntimeOnly|kapt|annotationProcessor|classpath|compile|testCompile)\s*\(?\s*group:\s*['"]([A-Za-z0-9_.-]+)['"]\s*,\s*name:\s*['"]([A-Za-z0-9_.-]+)['"](?:\s*,\s*version:\s*['"]([^'"]+)['"])?/g;
 
 export class GradleDepLensInlayProvider extends BaseDepLensInlayProvider {
-
   constructor() {
     super();
     GithubRepoInfoService.getInstance().onDidUpdateRepoInfo(() => {
@@ -18,59 +18,53 @@ export class GradleDepLensInlayProvider extends BaseDepLensInlayProvider {
   }
 
   protected isFileSupported(document: vscode.TextDocument): boolean {
-    const fileName = document.fileName;
-    return fileName.endsWith("build.gradle") || fileName.endsWith("build.gradle.kts") ||
-           document.languageId === "groovy";
+    return document.fileName.endsWith("build.gradle") || document.fileName.endsWith("build.gradle.kts");
   }
 
   protected async provideInlayHintsForDocument(
     document: vscode.TextDocument,
     range: vscode.Range,
-    token: vscode.CancellationToken
+    token: vscode.CancellationToken,
   ): Promise<vscode.InlayHint[]> {
     const hints: vscode.InlayHint[] = [];
     const text = document.getText();
-    const textRange = text.substring(
-      document.offsetAt(range.start),
-      document.offsetAt(range.end)
-    );
 
-    // 查找所有依赖声明
-    const matches = textRange.matchAll(DEP_NOTATION_REGEX);
-
-    for (const match of matches) {
-      if (!match.index) continue;
-
-      const groupId = match[2];
-      const artifactId = match[3];
-      const version = match[4];
-
-      // 找到依赖声明的结束位置
-      const actualIndex = document.offsetAt(range.start) + match.index + match[0].length;
-      const pos = document.positionAt(actualIndex);
-
-      const hint = await this.createMavenHint(groupId, artifactId, pos);
-      if (hint) {
-        hints.push(hint);
-      }
-    }
+    await this.collectMatches(text, document, range, hints, DEP_NOTATION_REGEX, 2, 3, 4);
+    await this.collectMatches(text, document, range, hints, MAP_NOTATION_REGEX, 2, 3, 4);
 
     return hints;
   }
 
-  private async createMavenHint(
-    groupId: string,
-    artifactId: string,
-    position: vscode.Position
-  ): Promise<vscode.InlayHint | null> {
-    const repoUrl = `https://search.maven.org/artifact/${groupId}/${artifactId}`;
-    
-    // For now, just show a basic Maven dependency hint
-    const label = `📦 ${groupId}:${artifactId}`;
-    
-    const hint = new vscode.InlayHint(position, `  ${label}`);
-    hint.tooltip = `Gradle dependency: ${groupId}:${artifactId}\n\n[View on Maven Central](${repoUrl})`;
+  private async collectMatches(
+    text: string,
+    document: vscode.TextDocument,
+    range: vscode.Range,
+    hints: vscode.InlayHint[],
+    regex: RegExp,
+    groupIndex: number,
+    artifactIndex: number,
+    versionIndex: number,
+  ): Promise<void> {
+    for (const match of text.matchAll(regex)) {
+      if (match.index === undefined) {
+        continue;
+      }
 
-    return hint;
+      const position = document.positionAt(match.index + match[0].length);
+      if (!range.contains(position)) {
+        continue;
+      }
+
+      const repoKey = await MavenRepoResolver.repoKeyFromGroupArtifact(
+        match[groupIndex],
+        match[artifactIndex],
+        match[versionIndex],
+      );
+      if (!repoKey) {
+        continue;
+      }
+
+      GithubInlayUtils.addRepoInlay(hints, position, repoKey);
+    }
   }
 }

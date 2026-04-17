@@ -9,17 +9,15 @@ import { UiUtils } from "../UiUtils";
 
 export class NpmInlayUtils {
   static addNpmDepInlay(
-    document: vscode.TextDocument,
     hints: vscode.InlayHint[],
     pkg: string,
     position: vscode.Position
   ): void {
     const npmRes = NpmPkgInfoService.getInstance().getPackageInfo(pkg);
-    let dispatchedGithubFetch = false;
 
     switch (npmRes.result) {
       case Result.NONE:
-        if (NpmPkgInfoService.getInstance().hasFailure(pkg) && 
+        if (NpmPkgInfoService.getInstance().hasFailure(pkg) &&
             !NpmPkgInfoService.getInstance().isRequestRunning(pkg)) {
           UiUtils.addInlay(
             hints,
@@ -32,67 +30,36 @@ export class NpmInlayUtils {
           return;
         }
 
-        ProgressUtils.runBackground(
-          `DepLens: Fetch npm ${pkg}`,
-          () => NpmPkgInfoService.getInstance().fetchPackageInfo(pkg, () => {})
-        ).then(() => {
-          try {
-            NpmPkgInfoService.getInstance().fetchPackageInfo(pkg, () => {
-              // Request npm metadata completed
-              const updatedNpmRes = NpmPkgInfoService.getInstance().getPackageInfo(pkg);
-
-              if (updatedNpmRes.result === Result.SUCCESS) {
-                const url = updatedNpmRes.data?.githubUrl || "";
-                const repoKey = GithubRepoInfoService.getRepoKey(url);
-                
-                if (repoKey) {
-                  const repoRes = GithubRepoInfoService.getInstance().getRepoInfo(repoKey.owner, repoKey.repo);
-                  if (repoRes.result === Result.NONE && !dispatchedGithubFetch) {
-                    dispatchedGithubFetch = true;
-                    GithubRepoInfoService.getInstance().fetchRepoInfo(repoKey.owner, repoKey.repo);
-                  }
-                }
-              }
-            });
-          } catch (e) {
-            console.warn(`Failed to load npm info for ${pkg}`, e);
-          }
+        void Promise.resolve(
+          ProgressUtils.runBackground(
+            `DepLens: Fetch npm ${pkg}`,
+            () => NpmPkgInfoService.getInstance().fetchPackageInfo(pkg),
+          ),
+        ).catch((error: unknown) => {
+          console.warn(`Failed to load npm info for ${pkg}`, error);
         });
-        break;
+        UiUtils.addInlay(
+          hints,
+          position,
+          I18n.message(I18nKey.loadingNpmMeta),
+          undefined,
+          undefined,
+          `npm:${pkg}`
+        );
+        return;
+
+      case Result.PENDING:
+        UiUtils.addInlay(
+          hints,
+          position,
+          I18n.message(I18nKey.loadingNpmMeta),
+          undefined,
+          undefined,
+          `npm:${pkg}`
+        );
+        return;
 
       case Result.SUCCESS:
-        const npmData = npmRes.data;
-        if (npmData) {
-          let label = `📦 ${npmData.weeklyDownloads.toLocaleString()} weekly downloads`;
-          
-          // Add GitHub info if available
-          const url = npmData.githubUrl || "";
-          const repoKey = GithubRepoInfoService.getRepoKey(url);
-          if (repoKey) {
-            const repoRes = GithubRepoInfoService.getInstance().getRepoInfo(repoKey.owner, repoKey.repo);
-            if (repoRes.result === Result.SUCCESS && repoRes.data) {
-              const stars = repoRes.data.stars;
-              label += ` • ⭐ ${stars}`;
-            } else if (repoRes.result === Result.NONE && !dispatchedGithubFetch) {
-              dispatchedGithubFetch = true;
-              ProgressUtils.runBackground(
-                `DepLens: Fetch GitHub ${repoKey.owner}/${repoKey.repo}`,
-                () => GithubRepoInfoService.getInstance().fetchRepoInfo(repoKey.owner, repoKey.repo)
-              ).then(() => {
-                GithubRepoInfoService.getInstance().fetchRepoInfo(repoKey.owner, repoKey.repo);
-              });
-            }
-          }
-
-          UiUtils.addInlay(
-            hints,
-            position,
-            label,
-            label,
-            npmData.githubUrl,
-            `npm:${pkg}`
-          );
-        }
         break;
 
       case Result.FAILURE:
@@ -104,7 +71,103 @@ export class NpmInlayUtils {
           undefined,
           `npm:${pkg}`
         );
-        break;
+        return;
+    }
+
+    const npmInfo = npmRes.data;
+    if (!npmInfo) {
+      UiUtils.addInlay(
+        hints,
+        position,
+        I18n.message(I18nKey.failedNpmMeta),
+        undefined,
+        undefined,
+        `npm:${pkg}`
+      );
+      return;
+    }
+
+    const url = npmInfo.githubUrl;
+    if (!url) {
+      UiUtils.addInlay(
+        hints,
+        position,
+        I18n.message(I18nKey.noGithubUrl),
+        undefined,
+        undefined,
+        `npm:${pkg}`
+      );
+      return;
+    }
+
+    const repoKey = GithubRepoInfoService.getRepoKey(url);
+    if (!repoKey) {
+      UiUtils.addInlay(
+        hints,
+        position,
+        I18n.message(I18nKey.invalidGithubUrl),
+        undefined,
+        undefined,
+        `npm:${pkg}`
+      );
+      return;
+    }
+
+    const repoRes = GithubRepoInfoService.getInstance().getRepoInfo(repoKey.owner, repoKey.repo);
+    switch (repoRes.result) {
+      case Result.NONE:
+        void Promise.resolve(
+          ProgressUtils.runBackground(
+            `DepLens: Fetch GitHub ${repoKey.owner}/${repoKey.repo}`,
+            () => GithubRepoInfoService.getInstance().fetchRepoInfo(repoKey.owner, repoKey.repo),
+          ),
+        ).catch((error: unknown) => {
+          console.warn(`Failed to load repo info for ${repoKey.owner}/${repoKey.repo}`, error);
+        });
+        UiUtils.addInlay(
+          hints,
+          position,
+          I18n.message(I18nKey.loadingGithub),
+          undefined,
+          `https://github.com/${repoKey.owner}/${repoKey.repo}`,
+          `github:${repoKey.owner}/${repoKey.repo}`
+        );
+        return;
+
+      case Result.PENDING:
+        UiUtils.addInlay(
+          hints,
+          position,
+          I18n.message(I18nKey.loadingGithub),
+          undefined,
+          `https://github.com/${repoKey.owner}/${repoKey.repo}`,
+          `github:${repoKey.owner}/${repoKey.repo}`
+        );
+        return;
+
+      case Result.SUCCESS:
+        if (repoRes.data) {
+          UiUtils.addInlay(
+            hints,
+            position,
+            `⭐ ${repoRes.data.stars} • ${I18n.message(I18nKey.lastUpdated)} ${repoRes.data.updatedDate}`,
+            undefined,
+            `https://github.com/${repoKey.owner}/${repoKey.repo}`,
+            `github:${repoKey.owner}/${repoKey.repo}`
+          );
+          return;
+        }
+
+      case Result.FAILURE:
+        UiUtils.addInlay(
+          hints,
+          position,
+          I18n.message(I18nKey.failedGithub),
+          undefined,
+          `https://github.com/${repoKey.owner}/${repoKey.repo}`,
+          `github:${repoKey.owner}/${repoKey.repo}`
+        );
+        return;
     }
   }
 }

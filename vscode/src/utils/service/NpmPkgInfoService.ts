@@ -31,6 +31,7 @@ export class NpmPkgInfoService extends AbstractCachedRequestService<NpmPackageIn
   private static instance: NpmPkgInfoService;
   private _onDidUpdatePackageInfo = new vscode.EventEmitter<void>();
   public readonly onDidUpdatePackageInfo = this._onDidUpdatePackageInfo.event;
+  private storagePath = "";
 
   private constructor() {
     super(
@@ -47,12 +48,13 @@ export class NpmPkgInfoService extends AbstractCachedRequestService<NpmPackageIn
   }
 
   async init(context: vscode.ExtensionContext): Promise<void> {
-    const storagePath = context.globalStorageUri.fsPath;
+    this.storagePath = context.globalStorageUri.fsPath;
     try {
-      await fs.mkdir(storagePath, { recursive: true });
+      await fs.mkdir(this.storagePath, { recursive: true });
     } catch (e) {
       // Ignore directory creation errors
     }
+    await this.loadCacheFromDisk();
   }
 
   initCache(): void {
@@ -62,9 +64,12 @@ export class NpmPkgInfoService extends AbstractCachedRequestService<NpmPackageIn
 
   private async loadCacheFromDisk(): Promise<void> {
     try {
-      const storagePath = vscode.extensions.getExtension('gaoxiao.dep-lens')?.extensionUri.fsPath || '';
-      const cacheFile = path.join(storagePath, this.cacheFileName);
-      
+      if (!this.storagePath) {
+        return;
+      }
+
+      const cacheFile = path.join(this.storagePath, path.basename(this.cacheFileName));
+
       try {
         await fs.access(cacheFile);
       } catch {
@@ -91,9 +96,12 @@ export class NpmPkgInfoService extends AbstractCachedRequestService<NpmPackageIn
 
   private async saveCacheToDisk(): Promise<void> {
     try {
-      const storagePath = vscode.extensions.getExtension('gaoxiao.dep-lens')?.extensionUri.fsPath || '';
-      const cacheFile = path.join(storagePath, this.cacheFileName);
-      
+      if (!this.storagePath) {
+        return;
+      }
+
+      const cacheFile = path.join(this.storagePath, path.basename(this.cacheFileName));
+
       const obj: any = {};
       for (const [key, result] of this.cache.entries()) {
         if (result.result === Result.SUCCESS && result.data) {
@@ -116,12 +124,14 @@ export class NpmPkgInfoService extends AbstractCachedRequestService<NpmPackageIn
   }
 
   async fetchPackageInfo(packageName: string, onFinish?: () => void): Promise<void> {
+    this._onDidUpdatePackageInfo.fire();
     await this.fetchByKey(packageName, onFinish);
     this._onDidUpdatePackageInfo.fire();
     this.saveCacheToDisk();
   }
 
   async retryPackageInfo(packageName: string, onFinish?: () => void): Promise<void> {
+    this._onDidUpdatePackageInfo.fire();
     await this.retryByKey(packageName, onFinish);
     this._onDidUpdatePackageInfo.fire();
     this.saveCacheToDisk();
@@ -179,5 +189,11 @@ export class NpmPkgInfoService extends AbstractCachedRequestService<NpmPackageIn
   shutdown(): void {
     super.shutdown();
     this._onDidUpdatePackageInfo.dispose();
+  }
+
+  clearCache(): void {
+    super.clearCache();
+    void this.saveCacheToDisk();
+    this._onDidUpdatePackageInfo.fire();
   }
 }

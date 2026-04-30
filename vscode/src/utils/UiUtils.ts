@@ -11,16 +11,18 @@ export class UiUtils {
   ): void {
     const hint = new vscode.InlayHint(position, `  ${displayText}`);
 
-    let tooltipText = hoverText;
+    const tooltip = new vscode.MarkdownString(hoverText);
+    tooltip.isTrusted = true;
+
     if (githubUrl) {
-      tooltipText += `\n\n[Open on GitHub](${githubUrl})`;
+      tooltip.appendMarkdown(`\n\n[Open on GitHub](${githubUrl})`);
     }
     if (retryToken) {
       const encodedArgs = encodeURIComponent(JSON.stringify([retryToken]));
-      tooltipText += `\n[Retry](command:depLens.retry?${encodedArgs})`;
+      tooltip.appendMarkdown(`\n\n[Retry](command:depLens.retry?${encodedArgs})`);
     }
 
-    hint.tooltip = tooltipText;
+    hint.tooltip = tooltip;
     hints.push(hint);
   }
 }

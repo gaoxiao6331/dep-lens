@@ -77,39 +77,40 @@ export class GithubRepoInfoService {
     }
   }
 
-  static getRepoKey(url: string): { owner: string; repo: string } | null {
-    if (!url || typeof url !== 'string') {
-      return null;
+  static getRepoKey(path: string): { owner: string; repo: string } | null {
+    const raw = path?.trim();
+    if (!raw) return null;
+
+    let cleaned = raw;
+    cleaned = cleaned.replace(/^git\+/, "");
+    cleaned = cleaned.replace(/^git:\/\//, "");
+    cleaned = cleaned.replace(/^ssh:\/\//, "");
+
+    if (cleaned.startsWith("github:")) {
+      const rest = cleaned.replace(/^github:/, "").replace(/^\/+/, "");
+      const parts = rest.split("/").filter(Boolean);
+      if (parts.length < 2) return null;
+      const owner = parts[0];
+      const repo = this.normalizeRepoName(parts[1]);
+      if (!owner || !repo) return null;
+      return { owner, repo };
     }
 
-    // Handle different GitHub URL formats
-    const patterns = [
-      /^https?:\/\/github\.com\/([^\/]+)\/([^\/]+?)(?:\.git)?$/,  // https://github.com/owner/repo
-      /^git@github\.com:([^\/]+)\/([^\/]+?)(?:\.git)?$/             // git@github.com:owner/repo
-    ];
+    const match = cleaned.match(/github\.com[:/]+([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)/);
+    if (!match) return null;
 
-    for (const pattern of patterns) {
-      const match = url.match(pattern);
-      if (match) {
-        return {
-          owner: match[1],
-          repo: match[2]
-        };
-      }
-    }
+    const owner = match[1];
+    const repo = this.normalizeRepoName(match[2]);
+    if (!owner || !repo) return null;
+    return { owner, repo };
+  }
 
-    // Try to parse as direct owner/repo format
-    if (url.includes('/')) {
-      const parts = url.split('/');
-      if (parts.length >= 2) {
-        return {
-          owner: parts[parts.length - 2],
-          repo: parts[parts.length - 1].replace(/\.git$/, '')
-        };
-      }
-    }
-
-    return null;
+  private static normalizeRepoName(value: string): string {
+    return value
+      .split("#")[0]
+      .split("?")[0]
+      .replace(/\.git$/, "")
+      .trim();
   }
 
   getRepoInfo(owner: string, repo: string): ResultWrapper<GithubRepoInfo> {

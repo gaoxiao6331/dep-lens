@@ -3,8 +3,8 @@ import * as path from "node:path";
 import { fetch } from "undici";
 import * as vscode from "vscode";
 import { Logger } from "../Logger";
-import { AbstractCachedRequestService, CachedEntry, ResultWrapper } from "./AbstractCachedRequestService";
-import { Result } from "../../common/Result";
+import { AbstractCachedRequestService, CachedEntry } from "./AbstractCachedRequestService";
+import { Result, type ResultWrapper } from "../../common/Result";
 
 export interface NpmPackageInfo extends CachedEntry {
   name: string;
@@ -85,7 +85,7 @@ export class NpmPkgInfoService extends AbstractCachedRequestService<NpmPackageIn
         for (const key in map) {
           const val = map[key] as NpmPackageInfo;
           if (now - val.fetchedAt <= expiry) {
-            this.cache.set(key, new ResultWrapper(Result.SUCCESS, val));
+            this.cache.set(key, { result: Result.SUCCESS, data: val });
           }
         }
       }

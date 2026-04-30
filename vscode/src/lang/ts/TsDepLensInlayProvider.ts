@@ -1,13 +1,9 @@
 import * as vscode from "vscode";
-import { Result } from "../../common/Result";
-import { I18n } from "../../utils/I18n";
-import { I18nKey } from "../../common/I18nKey";
 import { BaseDepLensInlayProvider } from "../BaseDepLensInlayProvider";
 import { TsImportResolver } from "../../utils/resolver/TsImportResolver";
 import { NpmInlayUtils } from "../../utils/inlay/NpmInlayUtils";
 import { NpmPkgInfoService } from "../../utils/service/NpmPkgInfoService";
 import { GithubRepoInfoService } from "../../utils/service/GithubRepoInfoService";
-
 
 export class TsDepLensInlayProvider extends BaseDepLensInlayProvider {
 
@@ -57,29 +53,5 @@ export class TsDepLensInlayProvider extends BaseDepLensInlayProvider {
     }
 
     return hints;
-  }
-
-  private async createNpmHint(
-    document: vscode.TextDocument,
-    pkgName: string,
-    position: vscode.Position
-  ): Promise<vscode.InlayHint | null> {
-    const res = NpmPkgInfoService.getInstance().getPackageInfo(pkgName);
-
-    let label = "";
-    if (res.result === Result.NONE) {
-      label = I18n.message(I18nKey.loadingNpmMeta);
-      NpmPkgInfoService.getInstance().fetchPackageInfo(pkgName);
-    } else if (res.result === Result.SUCCESS && res.data) {
-      const data = res.data;
-      label = `📦 ${data.weeklyDownloads.toLocaleString()} weekly downloads`;
-    } else {
-      label = I18n.message(I18nKey.failedNpmMeta);
-    }
-
-    const hint = new vscode.InlayHint(position, `  ${label}`);
-    hint.tooltip = label;
-
-    return hint;
   }
 }

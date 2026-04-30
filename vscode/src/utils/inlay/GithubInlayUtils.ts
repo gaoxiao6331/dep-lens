@@ -38,16 +38,12 @@ export class GithubInlayUtils {
         label = I18n.message(I18nKey.loadingGithub);
         break;
 
-      case Result.SUCCESS:
-        const data = res.data;
-        if (data) {
-          const stars = data.stars;
-          const updated = data.updatedDate;
-          label = `⭐ ${stars} • ${I18n.message(I18nKey.lastUpdated)} ${updated}`;
-        } else {
-          label = I18n.message(I18nKey.failedGithub);
-        }
+      case Result.SUCCESS: {
+        const stars = res.data?.stars ?? "0";
+        const updated = res.data?.updatedDate ?? "N/A";
+        label = `⭐ ${stars} • ${I18n.message(I18nKey.lastUpdated)} ${updated}`;
         break;
+      }
 
       case Result.FAILURE:
         label = I18n.message(I18nKey.failedGithub);

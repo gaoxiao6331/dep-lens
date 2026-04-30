@@ -145,18 +145,19 @@ export class NpmInlayUtils {
         );
         return;
 
-      case Result.SUCCESS:
-        if (repoRes.data) {
-          UiUtils.addInlay(
-            hints,
-            position,
-            `⭐ ${repoRes.data.stars} • ${I18n.message(I18nKey.lastUpdated)} ${repoRes.data.updatedDate}`,
-            undefined,
-            `https://github.com/${repoKey.owner}/${repoKey.repo}`,
-            `github:${repoKey.owner}/${repoKey.repo}`
-          );
-          return;
-        }
+      case Result.SUCCESS: {
+        const stars = repoRes.data?.stars ?? "0";
+        const updated = repoRes.data?.updatedDate ?? "N/A";
+        UiUtils.addInlay(
+          hints,
+          position,
+          `⭐ ${stars} • ${I18n.message(I18nKey.lastUpdated)} ${updated}`,
+          undefined,
+          `https://github.com/${repoKey.owner}/${repoKey.repo}`,
+          `github:${repoKey.owner}/${repoKey.repo}`
+        );
+        return;
+      }
 
       case Result.FAILURE:
         UiUtils.addInlay(

@@ -1,15 +1,10 @@
-import { Result } from "../../common/Result";
+import { Result, ResultWrapper } from "../../common/Result";
 import { Logger } from "../Logger";
+
+export type { ResultWrapper };
 
 export interface CachedEntry {
   fetchedAt: number;
-}
-
-export class ResultWrapper<T> {
-  constructor(
-    public result: Result,
-    public data?: T
-  ) {}
 }
 
 export abstract class AbstractCachedRequestService<T extends CachedEntry> {
@@ -36,7 +31,7 @@ export abstract class AbstractCachedRequestService<T extends CachedEntry> {
     const cached = this.cache.get(key);
     
     if (!cached) {
-      return new ResultWrapper(Result.NONE);
+      return { result: Result.NONE };
     }
 
     if (cached.result === Result.SUCCESS) {
@@ -65,7 +60,7 @@ export abstract class AbstractCachedRequestService<T extends CachedEntry> {
     }
 
     this.runningRequests.add(key);
-    this.cache.set(key, new ResultWrapper(Result.PENDING));
+    this.cache.set(key, { result: Result.PENDING });
 
     try {
       const response = await this.createRequestCall(key);
@@ -78,7 +73,7 @@ export abstract class AbstractCachedRequestService<T extends CachedEntry> {
       const data = await this.parseResponseBody(key, body);
 
       if (data) {
-        this.cache.set(key, new ResultWrapper(Result.SUCCESS, data));
+        this.cache.set(key, { result: Result.SUCCESS, data });
         this.failureCounts.delete(key);
         this.logger.info(`[Request Success] ${key}`);
       } else {
@@ -91,9 +86,9 @@ export abstract class AbstractCachedRequestService<T extends CachedEntry> {
       this.failureCounts.set(key, currentFailures + 1);
       
       if (currentFailures + 1 >= this.maxFailureCount) {
-        this.cache.set(key, new ResultWrapper(Result.FAILURE));
+        this.cache.set(key, { result: Result.FAILURE });
       } else {
-        this.cache.set(key, new ResultWrapper(Result.NONE));
+        this.cache.set(key, { result: Result.NONE });
       }
     } finally {
       this.runningRequests.delete(key);

@@ -22,4 +22,18 @@ export class RequestManager {
     const expireTimes = [...items, now + FAILED_EXPIRE_TIME];
     this.failed.set(key, expireTimes);
   }
+
+  getFailureCount(key: string): number {
+    const now = Date.now();
+    const items = this.failed.get(key)?.filter((expireTime) => expireTime > now) ?? [];
+    return items.length;
+  }
+
+  hasFailure(key: string): boolean {
+    return this.getFailureCount(key) > 0;
+  }
+
+  clearFailure(key: string): void {
+    this.failed.delete(key);
+  }
 }

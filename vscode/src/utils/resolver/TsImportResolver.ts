@@ -1,5 +1,14 @@
 import * as vscode from "vscode";
 
+import { builtinModules } from "node:module";
+
+const BUILTIN_MODULES = new Set(
+  builtinModules.flatMap((name) => {
+    const normalized = name.startsWith("node:") ? name.slice(5) : name;
+    return [name, normalized, `node:${normalized}`];
+  })
+);
+
 export class TsImportResolver {
   static isImport(element: string): boolean {
     // Check if the line is a TypeScript/JavaScript import statement
@@ -32,8 +41,8 @@ export class TsImportResolver {
   }
 
   static isLocalImport(dep: string): boolean {
-    // Check if import is local (relative path or absolute path)
-    return dep.startsWith('.') || dep.startsWith('/') || dep.startsWith('@/');
+    // Check if import is local or provided by the Node.js runtime itself.
+    return dep.startsWith('.') || dep.startsWith('/') || dep.startsWith('@/') || BUILTIN_MODULES.has(dep);
   }
 
   static getPkgName(dep: string): string {

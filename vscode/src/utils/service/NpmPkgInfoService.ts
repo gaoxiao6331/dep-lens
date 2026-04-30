@@ -124,15 +124,17 @@ export class NpmPkgInfoService extends AbstractCachedRequestService<NpmPackageIn
   }
 
   async fetchPackageInfo(packageName: string, onFinish?: () => void): Promise<void> {
+    const request = this.fetchByKey(packageName, onFinish);
     this._onDidUpdatePackageInfo.fire();
-    await this.fetchByKey(packageName, onFinish);
+    await request;
     this._onDidUpdatePackageInfo.fire();
     this.saveCacheToDisk();
   }
 
   async retryPackageInfo(packageName: string, onFinish?: () => void): Promise<void> {
+    const request = this.retryByKey(packageName, onFinish);
     this._onDidUpdatePackageInfo.fire();
-    await this.retryByKey(packageName, onFinish);
+    await request;
     this._onDidUpdatePackageInfo.fire();
     this.saveCacheToDisk();
   }

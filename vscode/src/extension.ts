@@ -1,15 +1,15 @@
 import * as vscode from "vscode";
 import { GoDepLensInlayProvider } from "./lang/go/GoDepLensInlayProvider";
+import { GradleDepLensInlayProvider } from "./lang/java/GradleDepLensInlayProvider";
 import { JavaDepLensInlayProvider } from "./lang/java/JavaDepLensInlayProvider";
 import { KotlinDepLensInlayProvider } from "./lang/java/KotlinDepLensInlayProvider";
-import { GradleDepLensInlayProvider } from "./lang/java/GradleDepLensInlayProvider";
 import { MavenDepLensInlayProvider } from "./lang/java/MavenDepLensInlayProvider";
-import { TsDepLensInlayProvider } from "./lang/ts/TsDepLensInlayProvider";
 import { PackageJsonDepLensInlayProvider } from "./lang/ts/PackageJsonDepLensInlayProvider";
-import { GithubRepoInfoService } from "./utils/service/GithubRepoInfoService";
-import { NpmPkgInfoService } from "./utils/service/NpmPkgInfoService";
+import { TsDepLensInlayProvider } from "./lang/ts/TsDepLensInlayProvider";
 import { I18n } from "./utils/I18n";
 import { Logger } from "./utils/Logger";
+import { GithubRepoInfoService } from "./utils/service/GithubRepoInfoService";
+import { NpmPkgInfoService } from "./utils/service/NpmPkgInfoService";
 
 export async function activate(context: vscode.ExtensionContext) {
   const logger = Logger.getInstance();
@@ -45,11 +45,17 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
-    vscode.languages.registerInlayHintsProvider({ scheme: "file", language: "kotlin" }, kotlinProvider),
+    vscode.languages.registerInlayHintsProvider(
+      { scheme: "file", language: "kotlin" },
+      kotlinProvider,
+    ),
   );
 
   context.subscriptions.push(
-    vscode.languages.registerInlayHintsProvider({ scheme: "file", language: "groovy" }, gradleProvider),
+    vscode.languages.registerInlayHintsProvider(
+      { scheme: "file", language: "groovy" },
+      gradleProvider,
+    ),
   );
 
   context.subscriptions.push(
@@ -71,15 +77,17 @@ export async function activate(context: vscode.ExtensionContext) {
   const packageJsonProvider = new PackageJsonDepLensInlayProvider();
 
   context.subscriptions.push(
-    vscode.languages.registerInlayHintsProvider({ scheme: "file", language: "typescript" }, tsProvider),
+    vscode.languages.registerInlayHintsProvider(
+      { scheme: "file", language: "typescript" },
+      tsProvider,
+    ),
   );
 
   context.subscriptions.push(
-    vscode.languages.registerInlayHintsProvider({ scheme: "file", language: "javascript" }, tsProvider),
-  );
-
-  context.subscriptions.push(
-    vscode.languages.registerInlayHintsProvider({ scheme: "file", language: "json" }, packageJsonProvider),
+    vscode.languages.registerInlayHintsProvider(
+      { scheme: "file", language: "javascript" },
+      tsProvider,
+    ),
   );
 
   context.subscriptions.push(

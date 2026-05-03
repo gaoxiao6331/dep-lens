@@ -1,8 +1,9 @@
-import * as vscode from "vscode";
+import type * as vscode from "vscode";
+import { GithubInlayUtils } from "../../utils/inlay/GithubInlayUtils";
+import { JvmDefinitionResolver } from "../../utils/resolver/JvmDefinitionResolver";
+import { MavenRepoResolver } from "../../utils/resolver/MavenRepoResolver";
 import { GithubRepoInfoService } from "../../utils/service/GithubRepoInfoService";
 import { BaseDepLensInlayProvider } from "../BaseDepLensInlayProvider";
-import { GithubInlayUtils } from "../../utils/inlay/GithubInlayUtils";
-import { MavenRepoResolver } from "../../utils/resolver/MavenRepoResolver";
 
 const IMPORT_REGEX = /^\s*import\s+([a-zA-Z0-9_.*]+)\s*$/gm;
 
@@ -47,8 +48,19 @@ export class KotlinDepLensInlayProvider extends BaseDepLensInlayProvider {
         continue;
       }
 
-      const symbolPosition = document.positionAt(match.index + match[0].indexOf(importName));
-      const resolvedPath = await this.resolveDefinitionPath(document.uri, symbolPosition);
+      const lastDot = importName.lastIndexOf(".");
+      const lastSegment = lastDot < 0 ? importName : importName.slice(lastDot + 1);
+      if (!lastSegment || lastSegment === "*") {
+        continue;
+      }
+
+      const symbolPosition = document.positionAt(
+        match.index + match[0].indexOf(importName) + (lastDot < 0 ? 0 : lastDot + 1),
+      );
+      const resolvedPath = await JvmDefinitionResolver.resolveJarPath(document.uri, symbolPosition);
+      if (!resolvedPath) {
+        continue;
+      }
       const repoKey = await MavenRepoResolver.repoKeyFromResolvedPath(resolvedPath);
       if (!repoKey) {
         continue;
@@ -58,23 +70,5 @@ export class KotlinDepLensInlayProvider extends BaseDepLensInlayProvider {
     }
 
     return hints;
-  }
-
-  private async resolveDefinitionPath(
-    documentUri: vscode.Uri,
-    position: vscode.Position,
-  ): Promise<string | null> {
-    const definitions = await vscode.commands.executeCommand<(vscode.Location | vscode.LocationLink)[]>(
-      "vscode.executeDefinitionProvider",
-      documentUri,
-      position,
-    );
-
-    const first = definitions?.[0];
-    if (!first) {
-      return null;
-    }
-
-    return "targetUri" in first ? first.targetUri.fsPath : first.uri.fsPath;
   }
 }

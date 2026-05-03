@@ -14,10 +14,18 @@ export class Logger {
   private static instance: Logger;
   private channel: vscode.OutputChannel;
   private level: LogLevel;
+  private configListener: vscode.Disposable | undefined;
 
   private constructor() {
     this.channel = vscode.window.createOutputChannel(NAME);
     this.level = this.getConfiguredLevel();
+    this.info(`Log level initialized to ${this.level}`);
+    this.configListener = vscode.workspace.onDidChangeConfiguration((event) => {
+      if (event.affectsConfiguration("depLens.logLevel")) {
+        this.level = this.getConfiguredLevel();
+        this.info(`Log level updated to ${this.level}`);
+      }
+    });
   }
 
   static getInstance() {
@@ -72,6 +80,7 @@ export class Logger {
 
   dispose() {
     this.channel.dispose();
+    this.configListener?.dispose();
   }
 }
 

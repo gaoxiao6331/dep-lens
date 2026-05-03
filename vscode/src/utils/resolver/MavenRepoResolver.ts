@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { RepoKey } from "../service/RepoKey";
+import type { RepoKey } from "../service/RepoKey";
 
 export class MavenRepoResolver {
   static async repoKeyFromGroupArtifact(
@@ -14,11 +14,49 @@ export class MavenRepoResolver {
     }
 
     const resolvedVersion = await this.resolveLocalVersion(groupId, artifactId, version);
-    if (!resolvedVersion) {
+    if (resolvedVersion) {
+      const fromMaven = await this.resolveRepoFromPom(groupId, artifactId, resolvedVersion, 0);
+      if (fromMaven) {
+        return fromMaven;
+      }
+    }
+
+    const cleaned = version?.trim();
+    const gradleVersion = cleaned && !cleaned.includes("$") ? cleaned : resolvedVersion;
+    if (gradleVersion) {
+      return this.resolveRepoFromGradleCache(groupId, artifactId, gradleVersion);
+    }
+
+    return null;
+  }
+
+  private static async resolveRepoFromGradleCache(
+    groupId: string,
+    artifactId: string,
+    version: string,
+  ): Promise<RepoKey | null> {
+    const base = this.gradleCacheBase();
+    const pomFile = await this.findPomInGradleCacheDir(base, groupId, artifactId, version);
+    if (!pomFile) {
       return null;
     }
 
-    return this.resolveRepoFromPom(groupId, artifactId, resolvedVersion, 0);
+    const content = await this.readText(pomFile);
+    if (!content) {
+      return null;
+    }
+
+    const direct = this.extractGithubRepoKey(content);
+    if (direct) {
+      return direct;
+    }
+
+    const parent = this.extractParentCoords(content);
+    if (parent && !this.hasTemplateVar(parent.groupId, parent.artifactId, parent.version)) {
+      return this.resolveRepoFromPom(parent.groupId, parent.artifactId, parent.version, 0);
+    }
+
+    return null;
   }
 
   static async repoKeyFromResolvedPath(filePath?: string | null): Promise<RepoKey | null> {
@@ -26,10 +64,28 @@ export class MavenRepoResolver {
       return null;
     }
 
+    const normalizedPath = this.normalizeResolvedPath(filePath);
+
     return (
-      (await this.repoKeyFromMavenLocalPath(filePath)) ??
-      (await this.repoKeyFromGradleCachePath(filePath))
+      (await this.repoKeyFromMavenLocalPath(normalizedPath)) ??
+      (await this.repoKeyFromGradleCachePath(normalizedPath))
     );
+  }
+
+  private static normalizeResolvedPath(filePath: string): string {
+    let cleaned = filePath;
+
+    const eqSlashIndex = cleaned.indexOf("=/");
+    if (eqSlashIndex >= 0) {
+      cleaned = cleaned.slice(0, eqSlashIndex);
+    }
+
+    const jarMatch = cleaned.match(/\.jar\b/i);
+    if (jarMatch && jarMatch.index !== undefined) {
+      cleaned = cleaned.slice(0, jarMatch.index + 4);
+    }
+
+    return cleaned;
   }
 
   private static async repoKeyFromMavenLocalPath(filePath: string): Promise<RepoKey | null> {
@@ -46,7 +102,9 @@ export class MavenRepoResolver {
       return null;
     }
 
-    const after = normalizedPath.slice(normalizedMarkerIndex + normalizedMarker.length).split("!")[0];
+    const after = normalizedPath
+      .slice(normalizedMarkerIndex + normalizedMarker.length)
+      .split("!")[0];
     const parts = after.split("/").filter(Boolean);
     if (parts.length < 4) {
       return null;
@@ -75,7 +133,14 @@ export class MavenRepoResolver {
 
     const [groupId, artifactId, version, hash] = parts;
     const base = this.gradleCacheBase();
-    const candidatePom = path.join(base, groupId, artifactId, version, hash, `${artifactId}-${version}.pom`);
+    const candidatePom = path.join(
+      base,
+      groupId,
+      artifactId,
+      version,
+      hash,
+      `${artifactId}-${version}.pom`,
+    );
     const pomFile = (await this.pathExists(candidatePom))
       ? candidatePom
       : await this.findPomInGradleCacheDir(base, groupId, artifactId, version);
@@ -203,7 +268,9 @@ export class MavenRepoResolver {
     return { owner, repo };
   }
 
-  private static extractParentCoords(text: string): { groupId: string; artifactId: string; version: string } | null {
+  private static extractParentCoords(
+    text: string,
+  ): { groupId: string; artifactId: string; version: string } | null {
     const parentBlock = text.match(/<parent>[\s\S]*?<\/parent>/)?.[0];
     if (!parentBlock) {
       return null;
@@ -230,8 +297,15 @@ export class MavenRepoResolver {
     );
   }
 
-  private static async localMetadataFile(groupId: string, artifactId: string): Promise<string | null> {
-    const artifactDir = path.join(this.localRepoBase(), groupId.replace(/\./g, path.sep), artifactId);
+  private static async localMetadataFile(
+    groupId: string,
+    artifactId: string,
+  ): Promise<string | null> {
+    const artifactDir = path.join(
+      this.localRepoBase(),
+      groupId.replace(/\./g, path.sep),
+      artifactId,
+    );
     const localMetadata = path.join(artifactDir, "maven-metadata-local.xml");
     if (await this.pathExists(localMetadata)) {
       return localMetadata;

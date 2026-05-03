@@ -1,8 +1,9 @@
-import * as vscode from "vscode";
+import type * as vscode from "vscode";
+import { GithubInlayUtils } from "../../utils/inlay/GithubInlayUtils";
+import { JvmDefinitionResolver } from "../../utils/resolver/JvmDefinitionResolver";
+import { MavenRepoResolver } from "../../utils/resolver/MavenRepoResolver";
 import { GithubRepoInfoService } from "../../utils/service/GithubRepoInfoService";
 import { BaseDepLensInlayProvider } from "../BaseDepLensInlayProvider";
-import { GithubInlayUtils } from "../../utils/inlay/GithubInlayUtils";
-import { MavenRepoResolver } from "../../utils/resolver/MavenRepoResolver";
 
 const IMPORT_REGEX = /^\s*import\s+(?:static\s+)?([a-zA-Z0-9_.*]+)\s*;/gm;
 
@@ -46,8 +47,18 @@ export class JavaDepLensInlayProvider extends BaseDepLensInlayProvider {
         continue;
       }
 
-      const symbolPosition = document.positionAt(match.index + match[0].indexOf(importName));
-      const resolvedPath = await this.resolveDefinitionPath(document.uri, symbolPosition);
+      const symbolOffset = this.computeSymbolOffset(importName);
+      if (symbolOffset === null) {
+        continue;
+      }
+
+      const symbolPosition = document.positionAt(
+        match.index + match[0].indexOf(importName) + symbolOffset,
+      );
+      const resolvedPath = await JvmDefinitionResolver.resolveJarPath(document.uri, symbolPosition);
+      if (!resolvedPath) {
+        continue;
+      }
       const repoKey = await MavenRepoResolver.repoKeyFromResolvedPath(resolvedPath);
       if (!repoKey) {
         continue;
@@ -59,21 +70,17 @@ export class JavaDepLensInlayProvider extends BaseDepLensInlayProvider {
     return hints;
   }
 
-  private async resolveDefinitionPath(
-    documentUri: vscode.Uri,
-    position: vscode.Position,
-  ): Promise<string | null> {
-    const definitions = await vscode.commands.executeCommand<(vscode.Location | vscode.LocationLink)[]>(
-      "vscode.executeDefinitionProvider",
-      documentUri,
-      position,
-    );
-
-    const first = definitions?.[0];
-    if (!first) {
+  /**
+   * 返回 importName 内“最后一个可解析段”的起始偏移。
+   * 例如 `foo.bar.Baz` → 8（指向 `Baz`），`foo.bar.*` → null（通配符不解析）。
+   * 这样 `executeDefinitionProvider` 才能命中具体类/成员，从而拿到所在 JAR。
+   */
+  private computeSymbolOffset(importName: string): number | null {
+    const lastDot = importName.lastIndexOf(".");
+    const lastSegment = lastDot < 0 ? importName : importName.slice(lastDot + 1);
+    if (!lastSegment || lastSegment === "*") {
       return null;
     }
-
-    return "targetUri" in first ? first.targetUri.fsPath : first.uri.fsPath;
+    return lastDot < 0 ? 0 : lastDot + 1;
   }
 }

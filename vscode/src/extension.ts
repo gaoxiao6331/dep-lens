@@ -51,13 +51,10 @@ export async function activate(context: vscode.ExtensionContext) {
     ),
   );
 
-  context.subscriptions.push(
-    vscode.languages.registerInlayHintsProvider(
-      { scheme: "file", language: "groovy" },
-      gradleProvider,
-    ),
-  );
-
+  // Pattern-based selector alone is enough: matches build.gradle and
+  // build.gradle.kts regardless of which languageId the Gradle/Kotlin
+  // extension assigns. Registering additional language-based selectors
+  // would cause VS Code to call the provider twice and duplicate hints.
   context.subscriptions.push(
     vscode.languages.registerInlayHintsProvider(
       { scheme: "file", pattern: "**/build.gradle*" },

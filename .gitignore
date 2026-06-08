@@ -3,6 +3,7 @@ out/
 dist/
 build/
 bin/
+target/
 *.vsix
 *.jar
 *.zip

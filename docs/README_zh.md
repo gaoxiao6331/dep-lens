@@ -23,7 +23,7 @@ DepLens 是一个在 IDE 内 **展示第三方依赖可靠性** 的插件，帮�
 
 目前已实现：
 
-* 在 **JetBrains IDE** 中分析 **Go modules**
+* 在 **JetBrains IDE**、**VS Code** 和 **Zed** 中分析 **Go modules**
 * 自动解析依赖对应的 GitHub 仓库
 * 在 IDE 中 **内联展示仓库信息（Inlay Hint）**
 
@@ -43,9 +43,9 @@ DepLens 是一个在 IDE 内 **展示第三方依赖可靠性** 的插件，帮�
 
 DepLens 计划逐步扩展到更多语言和 IDE。
 
-| Language | JetBrains IDEs | VS Code    |
-|----------|----------------|------------|
-| Go       | ✅ Supported    | ✅ Supported     |
-| JS/TS    | ✅ Supported | ✅ Supported  |
-| Java     | ✅ Supported      | ✅ Supported  |
-| Kotlin   | ✅ Supported     | ✅ Supported  |
+| Language | JetBrains IDEs | VS Code     | Zed          |
+|----------|----------------|-------------|--------------|
+| Go       | ✅ Supported    | ✅ Supported | ✅ Supported |
+| JS/TS    | ✅ Supported    | ✅ Supported | Planned      |
+| Java     | ✅ Supported    | ✅ Supported | Planned      |
+| Kotlin   | ✅ Supported    | ✅ Supported | Planned      |

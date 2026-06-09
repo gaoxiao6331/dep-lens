@@ -16,4 +16,12 @@ cargo build --manifest-path lsp/Cargo.toml --release
 cargo check
 ```
 
+## Local Install
+
+```sh
+./install-local.sh
+```
+
+The script builds the Rust LSP server and symlinks this extension into Zed's local extensions directory. Reload or restart Zed after running it.
+
 Set `GITHUB_TOKEN` or `DEP_LENS_GITHUB_TOKEN` to use authenticated GitHub API requests.

@@ -3,6 +3,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 EXTENSION_ID="dep-lens"
+
+# Allow callers to override Zed's extension locations, while defaulting to the
+# standard macOS install paths used by Zed.
 ZED_EXTENSIONS_DIR="${ZED_EXTENSIONS_DIR:-$HOME/Library/Application Support/Zed/extensions}"
 ZED_LOCAL_EXTENSIONS_DIR="${ZED_LOCAL_EXTENSIONS_DIR:-$ZED_EXTENSIONS_DIR/installed}"
 INSTALL_DIR="$ZED_LOCAL_EXTENSIONS_DIR/$EXTENSION_ID"
@@ -19,6 +22,7 @@ Environment:
 EOF
 }
 
+# Keep argument parsing small and explicit so unsupported flags fail loudly.
 SKIP_CHECK=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -45,6 +49,7 @@ require_command() {
   fi
 }
 
+# Build the bundled LSP before linking the extension into Zed.
 require_command cargo
 
 echo "==> Building Dep Lens Zed LSP"
@@ -58,6 +63,8 @@ fi
 echo "==> Installing local extension"
 mkdir -p "$ZED_LOCAL_EXTENSIONS_DIR"
 
+# Replace an existing symlink in-place, but preserve a real directory by moving
+# it aside so local edits or previous installs are not discarded.
 if [[ -L "$INSTALL_DIR" ]]; then
   rm "$INSTALL_DIR"
 elif [[ -e "$INSTALL_DIR" ]]; then

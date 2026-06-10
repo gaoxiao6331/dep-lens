@@ -21,7 +21,7 @@ export async function activate(context: vscode.ExtensionContext) {
   await NpmPkgInfoService.getInstance().init(context);
 
   // Go providers
-  const goProvider = new GoDepLensInlayProvider();
+  const goProvider = new GoDepLensInlayProvider(context);
 
   context.subscriptions.push(
     vscode.languages.registerInlayHintsProvider({ scheme: "file", language: "go" }, goProvider),

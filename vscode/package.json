@@ -113,10 +113,11 @@
     ]
   },
   "scripts": {
-    "build": "tsup src/extension.ts --format cjs --dts --out-dir dist --external vscode",
+    "build": "pnpm build:wasm && tsup src/extension.ts --format cjs --dts --out-dir dist --external vscode",
+    "build:wasm": "cargo build --manifest-path ../lib/Cargo.toml --target wasm32-unknown-unknown --release && mkdir -p lib && cp ../lib/target/wasm32-unknown-unknown/release/dep_lens_lib.wasm lib/dep_lens_lib.wasm",
     "watch": "tsup src/extension.ts --format cjs --dts --out-dir dist --watch --external vscode",
     "typecheck": "tsc --noEmit",
-    "prepack": "tsup src/extension.ts --format cjs --dts --out-dir dist --external vscode && cp -r ../README.md ../LICENSE ../docs ../config .",
+    "prepack": "pnpm build && cp -r ../README.md ../LICENSE ../docs ../config .",
     "package": "vsce package",
     "publish": "vsce publish",
     "check": "biome check --fix ."
@@ -134,6 +135,7 @@
   "dependencies": {},
   "files": [
     "dist",
+    "lib",
     "config",
     "docs",
     "README.md",

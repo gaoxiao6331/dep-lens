@@ -1,26 +1,7 @@
-use regex::Regex;
-use std::sync::OnceLock;
-
 use crate::base_dep_lens_inlay_provider::BaseDepLensInlayProvider;
 use crate::lsp::{InlayHint, Position, Range, TextDocument};
 use crate::utils::inlay::github_inlay_utils::GithubInlayUtils;
 use crate::utils::service::github_repo_info_service::GithubRepoInfoService;
-
-fn re_github_import() -> &'static Regex {
-    static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| {
-        Regex::new(r#""github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)(?:/[^"]*)?""#)
-            .expect("valid GitHub Go import regex")
-    })
-}
-
-fn re_github_mod() -> &'static Regex {
-    static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| {
-        Regex::new(r"github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)")
-            .expect("valid GitHub go.mod regex")
-    })
-}
 
 pub struct GoDepLensInlayProvider;
 
@@ -42,54 +23,24 @@ impl BaseDepLensInlayProvider for GoDepLensInlayProvider {
         range: &Range,
     ) -> Vec<InlayHint> {
         let mut hints = Vec::new();
-        let start = range.start.line;
-        let end = range.end.line;
-        let is_go_mod = document.file_name.ends_with("go.mod");
-
-        for line in start..=end {
-            let text = document.line_at(line);
-
-            if is_go_mod && text.contains("// indirect") {
-                continue;
-            }
-
-            let captures = if is_go_mod {
-                re_github_mod().captures(text)
-            } else {
-                re_github_import().captures(text)
-            };
-            let Some(captures) = captures else {
-                continue;
-            };
-
-            let Some(owner) = captures.get(1).map(|m| m.as_str().to_string()) else {
-                continue;
-            };
-            let Some(repo) = captures.get(2).map(|m| m.as_str().to_string()) else {
-                continue;
-            };
-
-            let end_idx = if is_go_mod {
-                utf16_len(text)
-            } else {
-                let Some(byte_idx) = text.rfind('"') else {
-                    continue;
-                };
-                utf16_len(&text[..byte_idx]) + 1
-            };
-
-            let pos = Position {
-                line,
-                character: end_idx,
-            };
-
-            GithubInlayUtils::add_repo_inlay(&mut hints, pos, owner, repo);
+        for dependency in dep_lens_lib::go::parse_go_dependencies(
+            document.text(),
+            &document.file_name,
+            &document.language_id,
+            range.start.line,
+            range.end.line,
+        ) {
+            GithubInlayUtils::add_repo_inlay(
+                &mut hints,
+                Position {
+                    line: dependency.line,
+                    character: dependency.character,
+                },
+                dependency.owner,
+                dependency.repo,
+            );
         }
 
         hints
     }
-}
-
-fn utf16_len(value: &str) -> usize {
-    value.encode_utf16().count()
 }

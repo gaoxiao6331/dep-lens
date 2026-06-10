@@ -13,12 +13,12 @@ pub struct DocumentState {
 pub struct TextDocument {
     pub language_id: String,
     pub file_name: String,
-    lines: Vec<String>,
+    text: String,
 }
 
 impl TextDocument {
-    pub fn line_at(&self, line: usize) -> &str {
-        self.lines.get(line).map(String::as_str).unwrap_or("")
+    pub fn text(&self) -> &str {
+        &self.text
     }
 }
 
@@ -26,7 +26,7 @@ pub fn create_text_document(document: &DocumentState) -> TextDocument {
     TextDocument {
         language_id: document.language_id.clone(),
         file_name: uri_to_file_name(&document.uri),
-        lines: document.text.lines().map(str::to_string).collect(),
+        text: document.text.clone(),
     }
 }
 

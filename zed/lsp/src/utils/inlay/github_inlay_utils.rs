@@ -20,6 +20,8 @@ impl GithubInlayUtils {
         let retry_token = format!("github:{owner}/{repo}");
         let github_url = format!("https://github.com/{owner}/{repo}");
 
+        // The service is intentionally polled by renderers:
+        // first render starts the fetch, later renders replace the loading label with data.
         let label = match res.result {
             Result::None => {
                 GithubRepoInfoService::get_instance().start_fetch_repo_info(owner.clone(), repo.clone(), repo_id);
@@ -42,6 +44,7 @@ impl GithubInlayUtils {
             hints,
             position,
             label.clone(),
+            // Reuse the same text for tooltip/title until we need richer metadata.
             label,
             Some(github_url),
             Some(retry_token),

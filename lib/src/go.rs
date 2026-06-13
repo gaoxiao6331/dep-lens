@@ -7,12 +7,15 @@ use std::sync::OnceLock;
 pub struct GoDependency {
     pub owner: String,
     pub repo: String,
+    // Keep the original line/character so editors can place the inlay
+    // exactly after the matched import or module path.
     pub line: usize,
     pub character: usize,
 }
 
 fn re_github_import() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
+    // Compile the regex once and reuse it for every document scan.
     RE.get_or_init(|| {
         Regex::new(r#""github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)(?:/[^"]*)?""#)
             .expect("valid GitHub Go import regex")
@@ -34,6 +37,7 @@ pub fn parse_go_dependencies(
     start_line: usize,
     end_line: usize,
 ) -> Vec<GoDependency> {
+    // Only Go source files and go.mod files participate in dependency inlays.
     if start_line > end_line || !(language_id == "go" || file_name.ends_with("go.mod")) {
         return Vec::new();
     }
@@ -49,6 +53,7 @@ pub fn parse_go_dependencies(
             break;
         }
 
+        // Indirect dependencies are intentionally hidden to reduce noise in go.mod.
         if is_go_mod && line_text.contains("// indirect") {
             continue;
         }
@@ -70,11 +75,13 @@ pub fn parse_go_dependencies(
         };
 
         let character = if is_go_mod {
+            // In go.mod we attach the inlay at the end of the line.
             utf16_len(line_text)
         } else {
             let Some(byte_idx) = line_text.rfind('"') else {
                 continue;
             };
+            // LSP positions are UTF-16 based, so convert the byte slice before the closing quote.
             utf16_len(&line_text[..byte_idx]) + 1
         };
 
@@ -94,6 +101,8 @@ fn utf16_len(value: &str) -> usize {
 }
 
 thread_local! {
+    // The host reads the JSON bytes immediately after the exported function returns,
+    // so we keep one thread-local buffer alive across the FFI boundary.
     static LAST_WASM_RESULT: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
 }
 
@@ -127,6 +136,7 @@ pub unsafe extern "C" fn dep_lens_parse_go_dependencies_json(
 
     let bytes = match (text, file_name) {
         (Some(text), Some(file_name)) => {
+            // The WASM entrypoint always parses as Go; callers decide whether to invoke it.
             let dependencies = parse_go_dependencies(text, file_name, "go", start_line, end_line);
             serde_json::to_vec(&dependencies).unwrap_or_else(|_| b"[]".to_vec())
         }
@@ -153,6 +163,7 @@ unsafe fn read_wasm_str<'a>(ptr: *const u8, len: usize) -> Option<&'a str> {
         return None;
     }
 
+    // The caller owns the buffer; we only borrow it for the duration of the FFI call.
     let bytes = std::slice::from_raw_parts(ptr, len);
     std::str::from_utf8(bytes).ok()
 }

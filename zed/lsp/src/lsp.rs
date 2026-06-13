@@ -119,6 +119,8 @@ fn uri_to_file_name(uri: &str) -> String {
         return uri.to_string();
     };
 
+    // LSP clients may send either file:///path or file://host/path.
+    // For local files we only care about the path portion.
     let path = if rest.starts_with('/') {
         rest
     } else if let Some(path_start) = rest.find('/') {
@@ -140,6 +142,7 @@ fn percent_decode(value: &str) -> String {
             if let (Some(high), Some(low)) =
                 (hex_value(bytes[index + 1]), hex_value(bytes[index + 2]))
             {
+                // Decode a single %XX sequence and keep scanning the original byte slice.
                 output.push(high * 16 + low);
                 index += 3;
                 continue;

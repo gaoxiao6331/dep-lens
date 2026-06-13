@@ -32,6 +32,8 @@ struct GithubApiResponse {
 #[derive(Debug)]
 struct GithubRepoInfoServiceState {
     cache: HashMap<String, GithubRepoInfo>,
+    // true means a fetch is currently in flight, false means the last fetch failed
+    // and we are waiting for the retry window to expire.
     request_manager: HashMap<String, bool>,
     cache_file: PathBuf,
 }
@@ -121,6 +123,8 @@ impl GithubRepoInfoService {
         let three_days_millis = 3 * 24 * 60 * 60 * 1000;
         let mut state = self.state.lock().expect("state mutex poisoned");
         for (key, val) in map {
+            // Drop stale entries on load so the cache file can survive across sessions
+            // without forcing the UI to show obviously outdated metadata.
             if now.saturating_sub(val.fetched_at) <= three_days_millis {
                 state.cache.insert(key, val);
             }
@@ -203,6 +207,7 @@ impl GithubRepoInfoService {
             if let Some(info) = state.cache.get(&key) {
                 let three_days_millis = 3 * 24 * 60 * 60 * 1000;
                 if now_millis().saturating_sub(info.fetched_at) > three_days_millis {
+                    // Expire stale entries eagerly so the next UI refresh can trigger a refetch.
                     state.cache.remove(&key);
                     drop(state);
                     self.save_cache_to_disk_async();
@@ -243,6 +248,7 @@ impl GithubRepoInfoService {
         }
         self.fire_did_update_repo_info();
 
+        // Fetch in the background so the inlay can render a loading state immediately.
         thread::spawn(move || {
             if let Err(error) =
                 GithubRepoInfoService::get_instance().finish_fetch_repo_info(&owner, &repo, key)
@@ -295,11 +301,13 @@ impl GithubRepoInfoService {
                     let mut state = self.state.lock().expect("state mutex poisoned");
                     state.request_manager.insert(key.clone(), false);
                 }
+                // Keep the failed state briefly so repeated renders do not hammer the API.
                 self.clear_request_state_after(key.clone(), RETRY_DELAY_MILLIS);
                 return Err(error);
             }
         }
 
+        // Successful requests are also rate-limited for a short period to avoid duplicate fetches.
         self.clear_request_state_after(key, 60000);
         Ok(())
     }
@@ -326,6 +334,7 @@ impl GithubRepoInfoService {
         let body = response.into_string().map_err(|error| error.to_string())?;
         let json =
             serde_json::from_str::<GithubApiResponse>(&body).map_err(|error| error.to_string())?;
+        // We only show the date portion in the inlay to keep the label compact.
         let updated_date = json
             .pushed_at
             .split('T')
@@ -386,6 +395,8 @@ impl GithubRepoInfoService {
 
 #[allow(dead_code)]
 fn normalize_repo_name(value: &str) -> String {
+    // Match the looser repository URL handling used by editor extensions:
+    // strip fragments, queries and a trailing .git suffix.
     let without_hash = value.split('#').next().unwrap_or(value);
     let without_query = without_hash.split('?').next().unwrap_or(without_hash);
     without_query

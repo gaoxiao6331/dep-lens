@@ -1,6 +1,8 @@
 use serde_json::json;
 
+use crate::common::i18n_key;
 use crate::lsp::{InlayHint, MarkupContent, Position};
+use crate::utils::i18n::I18n;
 
 pub struct UiUtils;
 
@@ -18,7 +20,7 @@ impl UiUtils {
             tooltip.push_str(&format!("\n\n[Open on GitHub]({github_url})"));
         }
         if retry_token.is_some() {
-            tooltip.push_str("\n\nReload the document to retry loading dependency info.");
+            tooltip.push_str(&format!("\n\n{}", I18n::message(i18n_key::RELOAD_TO_RETRY)));
         }
 
         hints.push(InlayHint {

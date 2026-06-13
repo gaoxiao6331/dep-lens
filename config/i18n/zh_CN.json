@@ -10,5 +10,6 @@
     "noGithubUrl": "没有 GitHub 地址",
     "invalidGithubUrl": "GitHub 地址无效",
     "openOnGithub": "在 GitHub 上打开",
-    "retry": "重试"
+    "retry": "重试",
+    "reloadToRetry": "重新打开文件以重试"
 }

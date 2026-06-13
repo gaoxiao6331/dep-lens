@@ -10,5 +10,6 @@
     "noGithubUrl": "no github url",
     "invalidGithubUrl": "invalid github url",
     "openOnGithub": "Open on GitHub",
-    "retry": "Retry"
+    "retry": "Retry",
+    "reloadToRetry": "Reload the document to retry"
 }

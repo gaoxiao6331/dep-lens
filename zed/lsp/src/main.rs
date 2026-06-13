@@ -286,6 +286,19 @@ impl LspWriter {
         self.write_message(message);
     }
 
+    fn send_notification(&self, method: &str, params: Option<Value>) {
+        let mut message = json!({
+            "jsonrpc": "2.0",
+            "method": method
+        });
+
+        if let Some(params) = params {
+            message["params"] = params;
+        }
+
+        self.write_message(message);
+    }
+
     fn write_message(&self, message: Value) {
         let content = message.to_string();
         let mut stdout = self.stdout.lock().expect("stdout mutex poisoned");
@@ -312,8 +325,8 @@ fn spawn_refresh_thread(
     thread::spawn(move || {
         while refresh_rx.recv().is_ok() {
             if initialized.load(Ordering::SeqCst) {
-                logger().debug("sending workspace/inlayHint/refresh");
-                writer.send_request("workspace/inlayHint/refresh", None);
+                logger().info("sending workspace/inlayHint/refresh notification");
+                writer.send_notification("workspace/inlayHint/refresh", None);
             }
         }
     });

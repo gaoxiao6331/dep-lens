@@ -318,7 +318,14 @@ impl GithubRepoInfoService {
         repo: &str,
     ) -> std::result::Result<GithubRepoInfo, String> {
         let url = format!("https://api.github.com/repos/{owner}/{repo}");
-        let mut request = ureq::get(&url)
+        logger().info(&format!("Fetching GitHub repo info for {url}"));
+        
+        let agent = ureq::AgentBuilder::new()
+            .timeout_read(std::time::Duration::from_secs(10))
+            .timeout_connect(std::time::Duration::from_secs(10))
+            .build();
+            
+        let mut request = agent.get(&url)
             .set("Accept", "application/vnd.github+json")
             .set("User-Agent", "dep-lens-zed");
 
@@ -326,12 +333,20 @@ impl GithubRepoInfoService {
             std::env::var("DEP_LENS_GITHUB_TOKEN").or_else(|_| std::env::var("GITHUB_TOKEN"))
         {
             if !github_token.is_empty() {
+                logger().debug("Using GitHub token from env");
                 request = request.set("Authorization", &format!("Bearer {github_token}"));
             }
         }
 
-        let response = request.call().map_err(|error| error.to_string())?;
+        let response = request.call().map_err(|error| {
+            logger().warn(&format!("GitHub request failed for {url}: {error}"));
+            error.to_string()
+        })?;
+        logger().info(&format!("GitHub API response status: {}", response.status()));
+        
         let body = response.into_string().map_err(|error| error.to_string())?;
+        logger().debug(&format!("GitHub API response body: {}", &body[0..std::cmp::min(200, body.len())]));
+        
         let json =
             serde_json::from_str::<GithubApiResponse>(&body).map_err(|error| error.to_string())?;
         // We only show the date portion in the inlay to keep the label compact.

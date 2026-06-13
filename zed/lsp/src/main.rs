@@ -27,6 +27,10 @@ fn main() {
 }
 
 fn run() -> io::Result<()> {
+    logger().info(&format!(
+        "Dep Lens LSP starting (log level: {})",
+        logger().level()
+    ));
     GithubRepoInfoService::get_instance().init();
 
     let writer = Arc::new(LspWriter::new());
@@ -49,6 +53,7 @@ fn run() -> io::Result<()> {
     loop {
         let read = stdin.read(&mut chunk)?;
         if read == 0 {
+            logger().info("stdin closed, shutting down Dep Lens LSP");
             break;
         }
 
@@ -62,6 +67,7 @@ fn run() -> io::Result<()> {
     }
 
     GithubRepoInfoService::get_instance().shutdown();
+    logger().info("Dep Lens LSP stopped");
     Ok(())
 }
 
@@ -92,7 +98,10 @@ impl LspServer {
     fn handle_request(&mut self, method: &str, message: Value) {
         let id = message.get("id").cloned().unwrap_or(Value::Null);
         let result = match method {
-            "initialize" => self.handle_initialize(),
+            "initialize" => {
+                logger().info("received initialize request from Zed");
+                self.handle_initialize()
+            }
             "shutdown" => Value::Null,
             "textDocument/inlayHint" => {
                 let params = serde_json::from_value::<InlayHintParams>(
@@ -120,6 +129,7 @@ impl LspServer {
         match method {
             "initialized" => {
                 self.initialized.store(true, Ordering::SeqCst);
+                logger().info("received initialized notification from Zed");
             }
             "textDocument/didOpen" => {
                 if let Ok(params) = serde_json::from_value::<DidOpenTextDocumentParams>(
@@ -143,10 +153,11 @@ impl LspServer {
                 }
             }
             "exit" => {
+                logger().info("received exit notification from Zed");
                 GithubRepoInfoService::get_instance().shutdown();
                 std::process::exit(0);
             }
-            _ => {}
+            _ => logger().debug(&format!("ignored notification: {method}")),
         }
     }
 
@@ -166,6 +177,10 @@ impl LspServer {
     }
 
     fn handle_did_open(&mut self, params: DidOpenTextDocumentParams) {
+        logger().info(&format!(
+            "opened document: {} ({})",
+            params.text_document.uri, params.text_document.language_id
+        ));
         self.documents.insert(
             params.text_document.uri.clone(),
             DocumentState {
@@ -188,23 +203,39 @@ impl LspServer {
 
         existing.version = params.text_document.version;
         existing.text = full_text_change.text.clone();
+        logger().debug(&format!(
+            "updated document: {} (version: {:?})",
+            existing.uri, existing.version
+        ));
     }
 
     fn handle_did_close(&mut self, params: DidCloseTextDocumentParams) {
+        logger().info(&format!("closed document: {}", params.text_document.uri));
         self.documents.remove(&params.text_document.uri);
     }
 
     fn handle_inlay_hint(&self, params: InlayHintParams) -> Vec<Value> {
         let Some(state) = self.documents.get(&params.text_document.uri) else {
+            logger().debug(&format!(
+                "inlay hint requested for unopened document: {}",
+                params.text_document.uri
+            ));
             return Vec::new();
         };
 
         let document = create_text_document(state);
-        self.go_provider
+        let hints = self
+            .go_provider
             .provide_inlay_hints(&document, &params.range)
             .into_iter()
             .map(|hint| serde_json::to_value(hint).unwrap_or(Value::Null))
-            .collect()
+            .collect::<Vec<_>>();
+        logger().debug(&format!(
+            "generated {} inlay hints for {}",
+            hints.len(),
+            params.text_document.uri
+        ));
+        hints
     }
 }
 
@@ -281,6 +312,7 @@ fn spawn_refresh_thread(
     thread::spawn(move || {
         while refresh_rx.recv().is_ok() {
             if initialized.load(Ordering::SeqCst) {
+                logger().debug("sending workspace/inlayHint/refresh");
                 writer.send_request("workspace/inlayHint/refresh", None);
             }
         }

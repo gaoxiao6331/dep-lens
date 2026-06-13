@@ -4,6 +4,11 @@ dist/
 build/
 bin/
 target/
+# Zed 扩展构建产物
+zed/extension.wasm
+zed/dep-lens-zed-lsp
+zed/lsp/target/
+# 通用二进制
 *.vsix
 *.jar
 *.zip

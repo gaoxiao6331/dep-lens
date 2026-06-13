@@ -12,6 +12,8 @@ The extension runs a lightweight Rust LSP server because Zed extensions expose i
 ## Development
 
 ```sh
+rustup target add wasm32-wasip2
+cargo build --target wasm32-wasip2 --release
 cargo build --manifest-path lsp/Cargo.toml --release
 cargo check
 ```
@@ -22,6 +24,12 @@ cargo check
 ./install-local.sh
 ```
 
-The script builds the Rust LSP server and symlinks this extension into Zed's local extensions directory. Reload or restart Zed after running it.
+The script builds both the extension WebAssembly entrypoint and the Rust LSP server, writes `extension.wasm`, and symlinks this extension into Zed's local extensions directory. Reload or restart Zed after running it.
+
+If the install fails with a missing Rust target error, run:
+
+```sh
+rustup target add wasm32-wasip2
+```
 
 Set `GITHUB_TOKEN` or `DEP_LENS_GITHUB_TOKEN` to use authenticated GitHub API requests.

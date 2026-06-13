@@ -19,6 +19,10 @@ impl Logger {
         Self { level }
     }
 
+    pub fn debug(&self, message: &str) {
+        self.write("debug", message);
+    }
+
     pub fn info(&self, message: &str) {
         self.write("info", message);
     }
@@ -29,6 +33,10 @@ impl Logger {
 
     pub fn error(&self, message: &str) {
         self.write("error", message);
+    }
+
+    pub fn level(&self) -> LogLevel {
+        self.level
     }
 
     fn write(&self, level: LogLevel, message: &str) {

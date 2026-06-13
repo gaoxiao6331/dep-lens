@@ -145,7 +145,8 @@ fn binary_file_name() -> &'static str {
 }
 
 fn extension_log(message: &str) {
-    eprintln!("[DepLens Zed Extension] {message}");
+    // 在 Zed 扩展沙箱里，println! 输出更可能被 Zed 正确捕获到
+    println!("[DepLens Zed Extension] {message}");
 }
 
 zed::register_extension!(DepLensExtension);

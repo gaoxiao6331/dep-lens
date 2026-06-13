@@ -8,6 +8,7 @@ impl I18n {
             i18n_key::LOADING_GITHUB => "loading github...".to_string(),
             i18n_key::FAILED_GITHUB => "github info failed".to_string(),
             i18n_key::LAST_UPDATED => "last updated at".to_string(),
+            i18n_key::RELOAD_TO_RETRY => "Reload the document to retry".to_string(),
             _ => key.to_string(),
         }
     }

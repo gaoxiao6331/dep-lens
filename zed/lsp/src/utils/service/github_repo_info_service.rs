@@ -350,7 +350,6 @@ impl GithubRepoInfoService {
         })
     }
 
-    #[allow(dead_code)]
     pub fn retry_repo_info(&self, owner: &str, repo: &str) -> std::result::Result<(), String> {
         let key = format!("{owner}/{repo}");
         self.state

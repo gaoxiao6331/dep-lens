@@ -37,7 +37,11 @@ impl GithubInlayUtils {
                     data.updated_date
                 )
             }
-            Result::Failure => I18n::message(i18n_key::FAILED_GITHUB),
+            Result::Failure => {
+                // When we get a failure and user opens the file again, try to retry
+                let _ = GithubRepoInfoService::get_instance().retry_repo_info(&owner, &repo);
+                I18n::message(i18n_key::FAILED_GITHUB)
+            }
         };
 
         UiUtils::add_inlay(

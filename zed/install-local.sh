@@ -136,10 +136,5 @@ Installed:
   $INSTALL_DIR -> $SCRIPT_DIR
   $WORK_LSP_DIR/$(binary_name)
   $INSTALL_DIR/$(binary_name)
-
-Reload or restart Zed, then open a Go file or go.mod.
-
-Tips:
-  - 查看日志：Zed 命令面板 -> "Zed: Open Log" 或用 zed --foreground 启动
-  - 开启 debug 日志：DEP_LENS_LOG_LEVEL=debug zed --foreground
+  
 EOF

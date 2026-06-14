@@ -12,6 +12,8 @@ import com.intellij.psi.PsiFile
 abstract class BaseDepLensInlayProvider : InlayHintsProvider, DumbAware {
 
     protected open fun isFileSupported(file: PsiFile): Boolean = true
+    protected open val usesWholeFileCollection: Boolean = false
+    protected open fun collectFile(file: PsiFile, sink: InlayTreeSink) {}
 
     protected abstract fun collectElement(file: PsiFile, element: PsiElement, sink: InlayTreeSink)
 
@@ -20,7 +22,16 @@ abstract class BaseDepLensInlayProvider : InlayHintsProvider, DumbAware {
             return null
         }
         return object : SharedBypassCollector {
+            private var fileCollected = false
+
             override fun collectFromElement(element: PsiElement, sink: InlayTreeSink) {
+                if (usesWholeFileCollection) {
+                    if (!fileCollected) {
+                        fileCollected = true
+                        collectFile(file, sink)
+                    }
+                    return
+                }
                 collectElement(file, element, sink)
             }
         }

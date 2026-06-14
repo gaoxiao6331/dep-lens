@@ -7,6 +7,7 @@ import deplens.utils.ProgressUtils
 import deplens.utils.UiUtils
 import deplens.utils.service.GithubRepoInfoService
 import deplens.utils.service.NpmPkgInfoService
+import deplens.utils.service.PubPkgInfoService
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 
@@ -17,7 +18,7 @@ class DepLensTooltipLinkHandler : TooltipLinkHandler() {
             return false
         }
 
-        // Retry link payload format: retry:{urlEncoded("github:owner/repo" | "npm:package")}
+        // Retry link payload format: retry:{urlEncoded("github:owner/repo" | "npm:package" | "pub:package")}
         val encodedToken = refSuffix.removePrefix("retry:")
         val token = URLDecoder.decode(encodedToken, StandardCharsets.UTF_8)
 
@@ -28,6 +29,10 @@ class DepLensTooltipLinkHandler : TooltipLinkHandler() {
             }
             token.startsWith("npm:") -> {
                 retryNpm(token.removePrefix("npm:"), editor)
+                true
+            }
+            token.startsWith("pub:") -> {
+                retryPub(token.removePrefix("pub:"), editor)
                 true
             }
             else -> false
@@ -66,6 +71,21 @@ class DepLensTooltipLinkHandler : TooltipLinkHandler() {
             minVisibleMillis = 700
         ) {
             NpmPkgInfoService.retryPackageInfo(packageName) {
+                refreshInlays(editor)
+            }
+        }
+    }
+
+    private fun retryPub(packageName: String, editor: Editor) {
+        if (packageName.isBlank()) return
+
+        refreshInlays(editor)
+        ProgressUtils.runBackground(
+            editor.project ?: return,
+            "DepLens: Retry pub $packageName",
+            minVisibleMillis = 700
+        ) {
+            PubPkgInfoService.retryPackageInfo(packageName) {
                 refreshInlays(editor)
             }
         }

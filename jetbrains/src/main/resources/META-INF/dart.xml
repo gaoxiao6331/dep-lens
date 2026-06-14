@@ -1,0 +1,20 @@
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <codeInsight.declarativeInlayProvider
+                implementationClass="deplens.lang.dart.DartDepLensInlayProvider"
+                language="Dart"
+                isEnabledByDefault="true"
+                group="OTHER_GROUP"
+                providerId="deplens.inlay.dart"
+                nameKey="pluginName"
+                bundle="messages.DepLensBundle"/>
+        <codeInsight.declarativeInlayProvider
+                implementationClass="deplens.lang.dart.PubspecDepLensInlayProvider"
+                language="YAML"
+                isEnabledByDefault="true"
+                group="OTHER_GROUP"
+                providerId="deplens.inlay.pubspec"
+                nameKey="pluginName"
+                bundle="messages.DepLensBundle"/>
+    </extensions>
+</idea-plugin>

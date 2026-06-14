@@ -19,6 +19,7 @@
       <li>Maven: <code>pom.xml</code> dependencies</li>
       <li>Gradle: <code>build.gradle</code> and <code>build.gradle.kts</code> dependency declarations</li>
       <li>JavaScript/TypeScript: imports and <code>package.json</code> dependency sections</li>
+      <li>Dart/Flutter: <code>package:</code> imports and <code>pubspec.yaml</code> dependency sections</li>
     </ul>
 
     <p>Dep Lens uses local cache files and public package/repository metadata to keep hints responsive and reduce repeated network requests.</p>
@@ -27,6 +28,7 @@
     <depends>com.intellij.modules.platform</depends>
     <depends optional="true" config-file="go.xml">org.jetbrains.plugins.go</depends>
     <depends optional="true" config-file="ts.xml">com.intellij.modules.javascript</depends>
+    <depends optional="true" config-file="dart.xml">Dart</depends>
     <depends optional="true" config-file="java/java.xml">com.intellij.modules.java</depends>
     <depends optional="true" config-file="java/kotlin.xml">org.jetbrains.kotlin</depends>
     <depends optional="true" config-file="java/maven.xml">org.jetbrains.idea.maven</depends>

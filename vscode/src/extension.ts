@@ -1,4 +1,6 @@
 import * as vscode from "vscode";
+import { DartDepLensInlayProvider } from "./lang/dart/DartDepLensInlayProvider";
+import { PubspecDepLensInlayProvider } from "./lang/dart/PubspecDepLensInlayProvider";
 import { GoDepLensInlayProvider } from "./lang/go/GoDepLensInlayProvider";
 import { GradleDepLensInlayProvider } from "./lang/java/GradleDepLensInlayProvider";
 import { JavaDepLensInlayProvider } from "./lang/java/JavaDepLensInlayProvider";
@@ -10,6 +12,7 @@ import { I18n } from "./utils/I18n";
 import { Logger } from "./utils/Logger";
 import { GithubRepoInfoService } from "./utils/service/GithubRepoInfoService";
 import { NpmPkgInfoService } from "./utils/service/NpmPkgInfoService";
+import { PubPkgInfoService } from "./utils/service/PubPkgInfoService";
 
 export async function activate(context: vscode.ExtensionContext) {
   const logger = Logger.getInstance();
@@ -19,6 +22,7 @@ export async function activate(context: vscode.ExtensionContext) {
   await I18n.loadLocale(context);
   await GithubRepoInfoService.getInstance().init(context);
   await NpmPkgInfoService.getInstance().init(context);
+  await PubPkgInfoService.getInstance().init(context);
 
   // Go providers
   const goProvider = new GoDepLensInlayProvider();
@@ -94,11 +98,30 @@ export async function activate(context: vscode.ExtensionContext) {
     ),
   );
 
+  // Dart/Flutter providers
+  const dartProvider = new DartDepLensInlayProvider();
+  const pubspecProvider = new PubspecDepLensInlayProvider();
+
+  context.subscriptions.push(
+    vscode.languages.registerInlayHintsProvider(
+      { scheme: "file", language: "dart" },
+      dartProvider,
+    ),
+  );
+
+  context.subscriptions.push(
+    vscode.languages.registerInlayHintsProvider(
+      { scheme: "file", pattern: "**/pubspec.yaml" },
+      pubspecProvider,
+    ),
+  );
+
   context.subscriptions.push(
     vscode.commands.registerCommand("depLens.clearCache", () => {
       void Promise.all([
         GithubRepoInfoService.getInstance().clearCache(),
         NpmPkgInfoService.getInstance().clearCache(),
+        Promise.resolve(PubPkgInfoService.getInstance().clearCache()),
       ]).then(() => {
         vscode.window.showInformationMessage("DepLens cache cleared");
       });
@@ -117,6 +140,11 @@ export async function activate(context: vscode.ExtensionContext) {
         return;
       }
 
+      if (type === "pub" && value) {
+        await PubPkgInfoService.getInstance().retryPackageInfo(value);
+        return;
+      }
+
       if (type === "github" && value) {
         const [owner, repo] = value.split("/");
         if (owner && repo) {
@@ -130,4 +158,5 @@ export async function activate(context: vscode.ExtensionContext) {
 export function deactivate() {
   GithubRepoInfoService.getInstance().shutdown();
   NpmPkgInfoService.getInstance().shutdown();
+  PubPkgInfoService.getInstance().shutdown();
 }

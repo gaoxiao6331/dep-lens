@@ -1,4 +1,4 @@
-import { Result, ResultWrapper } from "../../common/Result";
+import { Result, type ResultWrapper } from "../../common/Result";
 import { Logger } from "../Logger";
 
 export type { ResultWrapper };
@@ -17,7 +17,7 @@ export abstract class AbstractCachedRequestService<T extends CachedEntry> {
 
   constructor(
     protected cacheFileName: string,
-    protected dataSerializer: any
+    protected dataSerializer: any,
   ) {
     this.logger = Logger.getInstance();
     this.initCache();
@@ -29,14 +29,14 @@ export abstract class AbstractCachedRequestService<T extends CachedEntry> {
 
   getCachedInfo(key: string): ResultWrapper<T> {
     const cached = this.cache.get(key);
-    
+
     if (!cached) {
       return { result: Result.NONE };
     }
 
     if (cached.result === Result.SUCCESS) {
       const data = cached.data;
-      if (data && (Date.now() - data.fetchedAt) > this.cacheExpiryMillis) {
+      if (data && Date.now() - data.fetchedAt > this.cacheExpiryMillis) {
         // Cache expired, but return it anyway and trigger background refresh
         Promise.resolve().then(() => this.fetchByKey(key));
         return cached;
@@ -64,7 +64,7 @@ export abstract class AbstractCachedRequestService<T extends CachedEntry> {
 
     try {
       const response = await this.createRequestCall(key);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
@@ -80,11 +80,11 @@ export abstract class AbstractCachedRequestService<T extends CachedEntry> {
         throw new Error("Failed to parse response");
       }
     } catch (error) {
-        this.logger.warn(`[Request Failed] ${key}: ${error}`);
-      
+      this.logger.warn(`[Request Failed] ${key}: ${error}`);
+
       const currentFailures = this.failureCounts.get(key) || 0;
       this.failureCounts.set(key, currentFailures + 1);
-      
+
       if (currentFailures + 1 >= this.maxFailureCount) {
         this.cache.set(key, { result: Result.FAILURE });
       } else {
@@ -92,7 +92,7 @@ export abstract class AbstractCachedRequestService<T extends CachedEntry> {
       }
     } finally {
       this.runningRequests.delete(key);
-      
+
       if (onFinish) {
         setTimeout(onFinish, 100);
       }

@@ -27,10 +27,7 @@ async function loadLocale(context: vscode.ExtensionContext) {
 
   const i18nDir = vscode.Uri.joinPath(context.extensionUri, "config", "i18n");
 
-  const langFile = vscode.Uri.joinPath(
-    i18nDir,
-    `${vscodeLangToJetBrainsLocale(lang)}.json`
-  );
+  const langFile = vscode.Uri.joinPath(i18nDir, `${vscodeLangToJetBrainsLocale(lang)}.json`);
 
   const enFile = vscode.Uri.joinPath(i18nDir, "en_US.json");
 
@@ -43,7 +40,7 @@ async function loadLocale(context: vscode.ExtensionContext) {
     logger.info(`Loaded locale file for language ${lang} from ${fileUri.fsPath}`);
   } catch (err) {
     text = {} as Text;
-    logger.error(`Failed to load locale file for language ${lang} from ${i18nDir.fsPath}`, true); 
+    logger.error(`Failed to load locale file for language ${lang} from ${i18nDir.fsPath}`, true);
   } finally {
     loaded = true;
   }

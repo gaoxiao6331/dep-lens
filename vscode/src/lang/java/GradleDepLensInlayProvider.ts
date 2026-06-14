@@ -1,8 +1,8 @@
-import * as vscode from "vscode";
-import { GithubRepoInfoService } from "../../utils/service/GithubRepoInfoService";
-import { BaseDepLensInlayProvider } from "../BaseDepLensInlayProvider";
+import type * as vscode from "vscode";
 import { GithubInlayUtils } from "../../utils/inlay/GithubInlayUtils";
 import { MavenRepoResolver } from "../../utils/resolver/MavenRepoResolver";
+import { GithubRepoInfoService } from "../../utils/service/GithubRepoInfoService";
+import { BaseDepLensInlayProvider } from "../BaseDepLensInlayProvider";
 
 const DEP_NOTATION_REGEX =
   /(implementation|api|compileOnly|runtimeOnly|testImplementation|testCompileOnly|testRuntimeOnly|kapt|annotationProcessor|classpath|compile|testCompile)\s*\(?\s*['"]([A-Za-z0-9_.-]+):([A-Za-z0-9_.-]+):([A-Za-z0-9_.\-+$]+)[^'"\s\)]*['"]/g;
@@ -18,7 +18,9 @@ export class GradleDepLensInlayProvider extends BaseDepLensInlayProvider {
   }
 
   protected isFileSupported(document: vscode.TextDocument): boolean {
-    return document.fileName.endsWith("build.gradle") || document.fileName.endsWith("build.gradle.kts");
+    return (
+      document.fileName.endsWith("build.gradle") || document.fileName.endsWith("build.gradle.kts")
+    );
   }
 
   protected async provideInlayHintsForDocument(

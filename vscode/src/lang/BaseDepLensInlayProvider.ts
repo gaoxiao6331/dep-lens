@@ -52,13 +52,13 @@ export abstract class BaseDepLensInlayProvider implements vscode.InlayHintsProvi
   protected abstract provideInlayHintsForDocument(
     document: vscode.TextDocument,
     range: vscode.Range,
-    token: vscode.CancellationToken
+    token: vscode.CancellationToken,
   ): Promise<vscode.InlayHint[]>;
 
   async provideInlayHints(
     document: vscode.TextDocument,
     range: vscode.Range,
-    token: vscode.CancellationToken
+    token: vscode.CancellationToken,
   ): Promise<vscode.InlayHint[]> {
     if (!this.isFileSupported(document)) {
       return [];

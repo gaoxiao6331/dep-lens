@@ -1,11 +1,11 @@
-import * as vscode from "vscode";
+import type * as vscode from "vscode";
 import { I18nKey } from "../../common/I18nKey";
 import { Result } from "../../common/Result";
-import { GithubRepoInfoService } from "../service/GithubRepoInfoService";
-import { RepoKey } from "../service/RepoKey";
 import { I18n } from "../I18n";
 import { ProgressUtils } from "../ProgressUtils";
 import { UiUtils } from "../UiUtils";
+import { GithubRepoInfoService } from "../service/GithubRepoInfoService";
+import type { RepoKey } from "../service/RepoKey";
 
 export class GithubInlayUtils {
   static addRepoInlay(
@@ -25,9 +25,8 @@ export class GithubInlayUtils {
       case Result.NONE:
         label = I18n.message(I18nKey.loadingGithub);
         void Promise.resolve(
-          ProgressUtils.runBackground(
-            `DepLens: Fetch GitHub ${owner}/${repo}`,
-            () => GithubRepoInfoService.getInstance().fetchRepoInfo(owner, repo),
+          ProgressUtils.runBackground(`DepLens: Fetch GitHub ${owner}/${repo}`, () =>
+            GithubRepoInfoService.getInstance().fetchRepoInfo(owner, repo),
           ),
         ).catch((error: unknown) => {
           console.warn(`Failed to load repo info for ${repoId}`, error);
@@ -50,13 +49,6 @@ export class GithubInlayUtils {
         break;
     }
 
-    UiUtils.addInlay(
-      hints,
-      position,
-      label,
-      label,
-      githubUrl,
-      retryToken
-    );
+    UiUtils.addInlay(hints, position, label, label, githubUrl, retryToken);
   }
 }

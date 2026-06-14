@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import * as vscode from "vscode";
+import type * as vscode from "vscode";
 
 export interface GoDependency {
   owner: string;
@@ -39,15 +39,27 @@ export class GoDependencyParser {
   }
 
   private static loadWasm(context: vscode.ExtensionContext): Promise<WasmExports> {
-    this.wasmExports ??= this.loadWasmInner(context);
+    if (!this.wasmExports) {
+      this.wasmExports = this.loadWasmInner(context).catch((error) => {
+        // Allow future calls to retry if the current load attempt fails.
+        this.wasmExports = undefined;
+        throw error;
+      });
+    }
     return this.wasmExports;
   }
 
-  private static async loadWasmInner(
-    context: vscode.ExtensionContext,
-  ): Promise<WasmExports> {
+  private static async loadWasmInner(context: vscode.ExtensionContext): Promise<WasmExports> {
     const candidates = [
-      path.join(context.extensionPath, "..", "lib", "target", "wasm32-unknown-unknown", "release", "dep_lens_lib.wasm"),
+      path.join(
+        context.extensionPath,
+        "..",
+        "lib",
+        "target",
+        "wasm32-unknown-unknown",
+        "release",
+        "dep_lens_lib.wasm",
+      ),
       path.join(context.extensionPath, "lib", "dep_lens_lib.wasm"),
     ];
     const errors: string[] = [];

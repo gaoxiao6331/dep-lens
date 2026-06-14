@@ -1,8 +1,8 @@
-import * as vscode from "vscode";
-import { BaseDepLensInlayProvider } from "../BaseDepLensInlayProvider";
+import type * as vscode from "vscode";
 import { NpmInlayUtils } from "../../utils/inlay/NpmInlayUtils";
-import { NpmPkgInfoService } from "../../utils/service/NpmPkgInfoService";
 import { GithubRepoInfoService } from "../../utils/service/GithubRepoInfoService";
+import { NpmPkgInfoService } from "../../utils/service/NpmPkgInfoService";
+import { BaseDepLensInlayProvider } from "../BaseDepLensInlayProvider";
 
 const DEP_SECTION_NAMES = new Set([
   "dependencies",
@@ -10,11 +10,10 @@ const DEP_SECTION_NAMES = new Set([
   "peerDependencies",
   "optionalDependencies",
   "bundledDependencies",
-  "bundleDependencies"
+  "bundleDependencies",
 ]);
 
 export class PackageJsonDepLensInlayProvider extends BaseDepLensInlayProvider {
-
   constructor() {
     super();
     NpmPkgInfoService.getInstance().onDidUpdatePackageInfo(() => {
@@ -32,14 +31,14 @@ export class PackageJsonDepLensInlayProvider extends BaseDepLensInlayProvider {
   protected async provideInlayHintsForDocument(
     document: vscode.TextDocument,
     range: vscode.Range,
-    token: vscode.CancellationToken
+    token: vscode.CancellationToken,
   ): Promise<vscode.InlayHint[]> {
     const hints: vscode.InlayHint[] = [];
     const text = document.getText();
-    
+
     try {
       const json = JSON.parse(text);
-      
+
       // 检查每个依赖区块
       for (const sectionName of DEP_SECTION_NAMES) {
         const deps = json[sectionName];
@@ -53,18 +52,16 @@ export class PackageJsonDepLensInlayProvider extends BaseDepLensInlayProvider {
         // 为每个依赖项创建提示
         for (const [pkgName, version] of Object.entries(deps)) {
           const versionStr = version as string;
-          const pkgRegex = new RegExp(`"${this.escapeRegExp(pkgName)}"\\s*:\\s*"${this.escapeRegExp(versionStr)}"`);
+          const pkgRegex = new RegExp(
+            `"${this.escapeRegExp(pkgName)}"\\s*:\\s*"${this.escapeRegExp(versionStr)}"`,
+          );
           const pkgMatch = text.match(pkgRegex);
-          
+
           if (pkgMatch && pkgMatch.index !== undefined) {
             const endQuoteIndex = text.indexOf('"', pkgMatch.index + pkgMatch[0].length - 1);
             if (endQuoteIndex !== -1) {
               const pos = document.positionAt(endQuoteIndex + 1);
-              NpmInlayUtils.addNpmDepInlay(
-                hints,
-                pkgName,
-                pos
-              );
+              NpmInlayUtils.addNpmDepInlay(hints, pkgName, pos);
             }
           }
         }
@@ -77,6 +74,6 @@ export class PackageJsonDepLensInlayProvider extends BaseDepLensInlayProvider {
   }
 
   private escapeRegExp(str: string): string {
-    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 }

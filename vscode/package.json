@@ -14,9 +14,7 @@
   "engines": {
     "vscode": "^1.86.0"
   },
-  "categories": [
-    "Other"
-  ],
+  "categories": ["Other"],
   "activationEvents": [
     "onLanguage:go",
     "onLanguage:java",
@@ -39,12 +37,7 @@
         },
         "depLens.logLevel": {
           "type": "string",
-          "enum": [
-            "debug",
-            "info",
-            "warn",
-            "error"
-          ],
+          "enum": ["debug", "info", "warn", "error"],
           "default": "info",
           "description": "Log level for Dep Lens"
         }
@@ -63,52 +56,35 @@
     "languages": [
       {
         "id": "go",
-        "aliases": [
-          "Go",
-          "golang"
-        ]
+        "aliases": ["Go", "golang"]
       },
       {
         "id": "java",
-        "aliases": [
-          "Java"
-        ]
+        "aliases": ["Java"]
       },
       {
         "id": "kotlin",
-        "aliases": [
-          "Kotlin"
-        ]
+        "aliases": ["Kotlin"]
       },
       {
         "id": "javascript",
-        "aliases": [
-          "JavaScript"
-        ]
+        "aliases": ["JavaScript"]
       },
       {
         "id": "typescript",
-        "aliases": [
-          "TypeScript"
-        ]
+        "aliases": ["TypeScript"]
       },
       {
         "id": "groovy",
-        "aliases": [
-          "Groovy"
-        ]
+        "aliases": ["Groovy"]
       },
       {
         "id": "json",
-        "aliases": [
-          "JSON"
-        ]
+        "aliases": ["JSON"]
       },
       {
         "id": "xml",
-        "aliases": [
-          "XML"
-        ]
+        "aliases": ["XML"]
       }
     ]
   },
@@ -133,12 +109,5 @@
     "undici": "^5.29.0"
   },
   "dependencies": {},
-  "files": [
-    "dist",
-    "lib",
-    "config",
-    "docs",
-    "README.md",
-    "LICENSE"
-  ]
+  "files": ["dist", "lib", "config", "docs", "README.md", "LICENSE"]
 }

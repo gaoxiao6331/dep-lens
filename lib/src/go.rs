@@ -4,13 +4,14 @@ use std::cell::RefCell;
 use std::sync::OnceLock;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct GoDependency {
     pub owner: String,
     pub repo: String,
     // Keep the original line/character so editors can place the inlay
     // exactly after the matched import or module path.
-    pub line: usize,
-    pub character: usize,
+    pub line: u32,
+    pub character: u32,
 }
 
 fn re_github_import() -> &'static Regex {
@@ -34,11 +35,14 @@ pub fn parse_go_dependencies(
     text: &str,
     file_name: &str,
     language_id: &str,
-    start_line: usize,
-    end_line: usize,
+    start_line: u32,
+    end_line: u32,
 ) -> Vec<GoDependency> {
     // Only Go source files and go.mod files participate in dependency inlays.
-    if start_line > end_line || !(language_id == "go" || file_name.ends_with("go.mod")) {
+    let start_line_usize = start_line as usize;
+    let end_line_usize = end_line as usize;
+    
+    if start_line_usize > end_line_usize || !(language_id == "go" || file_name.ends_with("go.mod")) {
         return Vec::new();
     }
 
@@ -46,10 +50,10 @@ pub fn parse_go_dependencies(
     let mut dependencies = Vec::new();
 
     for (line, line_text) in text.lines().enumerate() {
-        if line < start_line {
+        if line < start_line_usize {
             continue;
         }
-        if line > end_line {
+        if line > end_line_usize {
             break;
         }
 
@@ -88,7 +92,7 @@ pub fn parse_go_dependencies(
         dependencies.push(GoDependency {
             owner,
             repo,
-            line,
+            line: line as u32,
             character,
         });
     }
@@ -96,8 +100,8 @@ pub fn parse_go_dependencies(
     dependencies
 }
 
-fn utf16_len(value: &str) -> usize {
-    value.encode_utf16().count()
+fn utf16_len(value: &str) -> u32 {
+    value.encode_utf16().count() as u32
 }
 
 thread_local! {
@@ -137,7 +141,13 @@ pub unsafe extern "C" fn dep_lens_parse_go_dependencies_json(
     let bytes = match (text, file_name) {
         (Some(text), Some(file_name)) => {
             // The WASM entrypoint always parses as Go; callers decide whether to invoke it.
-            let dependencies = parse_go_dependencies(text, file_name, "go", start_line, end_line);
+            let dependencies = parse_go_dependencies(
+                text, 
+                file_name, 
+                "go", 
+                start_line as u32, 
+                end_line as u32
+            );
             serde_json::to_vec(&dependencies).unwrap_or_else(|_| b"[]".to_vec())
         }
         _ => b"[]".to_vec(),

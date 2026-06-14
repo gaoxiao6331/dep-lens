@@ -1,0 +1,16 @@
+namespace dep_lens_lib {
+    record GoDependency {
+        string owner;
+        string repo;
+        u32 line;
+        u32 character;
+    };
+
+    sequence<GoDependency> parse_go_dependencies(
+        string text,
+        string file_name,
+        string language_id,
+        u32 start_line,
+        u32 end_line
+    );
+};

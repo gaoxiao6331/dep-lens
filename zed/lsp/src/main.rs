@@ -12,6 +12,7 @@ use std::thread;
 
 use base_dep_lens_inlay_provider::BaseDepLensInlayProvider;
 use lang::go::go_dep_lens_inlay_provider::GoDepLensInlayProvider;
+use lang::rust::rust_dep_lens_inlay_provider::RustDepLensInlayProvider;
 use lsp::{
     create_text_document, DidChangeTextDocumentParams, DidCloseTextDocumentParams,
     DidOpenTextDocumentParams, DocumentState, InlayHintParams,
@@ -42,6 +43,7 @@ fn run() -> io::Result<()> {
     let mut server = LspServer {
         documents: HashMap::new(),
         go_provider: GoDepLensInlayProvider::new(),
+        rust_provider: RustDepLensInlayProvider::new(),
         writer,
         initialized,
     };
@@ -74,6 +76,7 @@ fn run() -> io::Result<()> {
 struct LspServer {
     documents: HashMap<String, DocumentState>,
     go_provider: GoDepLensInlayProvider,
+    rust_provider: RustDepLensInlayProvider,
     writer: Arc<LspWriter>,
     initialized: Arc<AtomicBool>,
 }
@@ -224,12 +227,22 @@ impl LspServer {
         };
 
         let document = create_text_document(state);
-        let hints = self
-            .go_provider
-            .provide_inlay_hints(&document, &params.range)
-            .into_iter()
-            .map(|hint| serde_json::to_value(hint).unwrap_or(Value::Null))
-            .collect::<Vec<_>>();
+        let mut hints = Vec::new();
+        
+        hints.extend(
+            self.go_provider
+                .provide_inlay_hints(&document, &params.range)
+                .into_iter()
+                .map(|hint| serde_json::to_value(hint).unwrap_or(Value::Null))
+        );
+        
+        hints.extend(
+            self.rust_provider
+                .provide_inlay_hints(&document, &params.range)
+                .into_iter()
+                .map(|hint| serde_json::to_value(hint).unwrap_or(Value::Null))
+        );
+        
         logger().debug(&format!(
             "generated {} inlay hints for {}",
             hints.len(),

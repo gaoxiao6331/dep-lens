@@ -1,6 +1,6 @@
 id = "dep-lens"
 name = "Dep Lens"
-version = "0.1.2"
+version = "0.0.1"
 schema_version = 1
 authors = ["gaoxiao"]
 description = "Dep Lens shows dependency health signals directly in your editor so you can quickly evaluate third-party packages while coding."

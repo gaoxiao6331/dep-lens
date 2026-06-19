@@ -8,4 +8,4 @@ repository = "https://github.com/gaoxiao6331/dep-lens"
 
 [language_servers.dep-lens]
 name = "Dep Lens"
-languages = ["Go", "Go Mod"]
+languages = ["Go", "Go Mod", "TOML"]

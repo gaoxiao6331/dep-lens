@@ -14,7 +14,7 @@ impl RustDepLensInlayProvider {
 
 impl BaseDepLensInlayProvider for RustDepLensInlayProvider {
     fn is_file_supported(&self, document: &TextDocument) -> bool {
-        document.language_id == "rust" || document.file_name.ends_with("Cargo.toml")
+        document.file_name.ends_with("Cargo.toml")
     }
 
     fn provide_inlay_hints_for_document(

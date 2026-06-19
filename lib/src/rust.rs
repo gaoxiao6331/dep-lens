@@ -11,18 +11,15 @@ pub struct RustDependency {
     pub character: usize,
 }
 
-fn re_cargo_toml_dep() -> &'static Regex {
+fn re_section_header() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| {
-        Regex::new(r#"^\s*([A-Za-z0-9_-]+)\s*=\s*"([^"]+)""#)
-            .expect("valid Cargo.toml dependency regex")
-    })
+    RE.get_or_init(|| Regex::new(r#"^\s*\[([^\]]+)\]\s*$"#).expect("valid Cargo.toml section regex"))
 }
 
 fn re_github_repo() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
     RE.get_or_init(|| {
-        Regex::new(r"github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)(?:\.git|/[^/]*)?")
+        Regex::new(r#"github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)(?:[/?#][^"\s]*)?"#)
             .expect("valid GitHub repo regex")
     })
 }
@@ -30,16 +27,16 @@ fn re_github_repo() -> &'static Regex {
 pub fn parse_rust_dependencies(
     text: &str,
     file_name: &str,
-    language_id: &str,
+    _language_id: &str,
     start_line: usize,
     end_line: usize,
 ) -> Vec<RustDependency> {
-    if start_line > end_line || !(language_id == "rust" || file_name.ends_with("Cargo.toml")) {
+    if start_line > end_line || !file_name.ends_with("Cargo.toml") {
         return Vec::new();
     }
 
-    let is_cargo_toml = file_name.ends_with("Cargo.toml");
     let mut dependencies = Vec::new();
+    let mut in_dependency_section = false;
 
     for (line, line_text) in text.lines().enumerate() {
         if line < start_line {
@@ -49,43 +46,17 @@ pub fn parse_rust_dependencies(
             break;
         }
 
-        if !is_cargo_toml {
+        if let Some(captures) = re_section_header().captures(line_text) {
+            let section = captures.get(1).map(|m| m.as_str()).unwrap_or("");
+            in_dependency_section = is_dependency_section(section);
             continue;
         }
 
-        let Some((owner, repo)) = (|| {
-            if let Some(c) = re_github_repo().captures(line_text) {
-                let owner = c.get(1).map(|m| m.as_str().to_string());
-                let repo = c.get(2).map(|m| m.as_str().to_string());
-                if let (Some(o), Some(r)) = (owner, repo) {
-                    return Some((o, r));
-                }
-            }
+        if !in_dependency_section {
+            continue;
+        }
 
-            if let Some(dep_captures) = re_cargo_toml_dep().captures(line_text) {
-                let name = dep_captures.get(1).map(|m| m.as_str()).unwrap_or("");
-                let value = dep_captures.get(2).map(|m| m.as_str()).unwrap_or("");
-                
-                if let Some(c) = re_github_repo().captures(value) {
-                    let owner = c.get(1).map(|m| m.as_str().to_string());
-                    let repo = c.get(2).map(|m| m.as_str().to_string());
-                    if let (Some(o), Some(r)) = (owner, repo) {
-                        return Some((o, r));
-                    }
-                }
-
-                let github_url = format!("github.com/rust-lang/{}", name);
-                if let Some(c) = re_github_repo().captures(&github_url) {
-                    let owner = c.get(1).map(|m| m.as_str().to_string());
-                    let repo = c.get(2).map(|m| m.as_str().to_string());
-                    if let (Some(o), Some(r)) = (owner, repo) {
-                        return Some((o, r));
-                    }
-                }
-            }
-
-            None
-        })() else {
+        let Some((owner, repo)) = parse_github_dependency(line_text) else {
             continue;
         };
 
@@ -100,6 +71,34 @@ pub fn parse_rust_dependencies(
     }
 
     dependencies
+}
+
+fn is_dependency_section(section: &str) -> bool {
+    matches!(
+        section,
+        "dependencies"
+            | "dev-dependencies"
+            | "build-dependencies"
+            | "workspace.dependencies"
+    ) || section.ends_with(".dependencies")
+        || section.ends_with(".dev-dependencies")
+        || section.ends_with(".build-dependencies")
+        || section.starts_with("dependencies.")
+        || section.starts_with("dev-dependencies.")
+        || section.starts_with("build-dependencies.")
+        || section.starts_with("workspace.dependencies.")
+}
+
+fn parse_github_dependency(line_text: &str) -> Option<(String, String)> {
+    let captures = re_github_repo().captures(line_text)?;
+    let owner = captures.get(1)?.as_str().to_string();
+    let repo = captures
+        .get(2)?
+        .as_str()
+        .strip_suffix(".git")
+        .unwrap_or(captures.get(2)?.as_str())
+        .to_string();
+    Some((owner, repo))
 }
 
 fn utf16_len(value: &str) -> usize {
@@ -159,7 +158,7 @@ mod tests {
     use super::parse_rust_dependencies;
 
     #[test]
-    fn parses_cargo_toml_deps() {
+    fn parses_only_github_dependencies_inside_dependency_sections() {
         let text = r#"[package]
 name = "example"
 version = "0.1.0"
@@ -167,14 +166,46 @@ version = "0.1.0"
 [dependencies]
 tokio = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-rand = "0.8"
+repo_dep = { git = "https://github.com/foo/bar.git", branch = "main" }
+
+[target.'cfg(unix)'.dependencies]
+platform_dep = { git = "https://github.com/baz/qux" }
 
 [dependencies.foo]
 git = "https://github.com/bar/baz.git"
+
+[package.metadata.dep-lens]
+git = "https://github.com/should/not-count.git"
 "#;
 
         let deps = parse_rust_dependencies(text, "Cargo.toml", "toml", 0, 20);
 
-        assert_eq!(deps.len(), 4);
+        assert_eq!(deps.len(), 3);
+        assert_eq!(deps[0].owner, "foo");
+        assert_eq!(deps[0].repo, "bar");
+        assert_eq!(deps[1].owner, "baz");
+        assert_eq!(deps[1].repo, "qux");
+        assert_eq!(deps[2].owner, "bar");
+        assert_eq!(deps[2].repo, "baz");
+    }
+
+    #[test]
+    fn ignores_non_cargo_files() {
+        let text = r#"use serde::Serialize;"#;
+
+        let deps = parse_rust_dependencies(text, "main.rs", "rust", 0, 10);
+
+        assert!(deps.is_empty());
+    }
+
+    #[test]
+    fn preserves_utf16_character_positions() {
+        let text = "[dependencies]\nrepo_dep = { git = \"https://github.com/foo/bar\" }\n";
+
+        let deps = parse_rust_dependencies(text, "Cargo.toml", "toml", 0, 10);
+
+        assert_eq!(deps.len(), 1);
+        assert_eq!(deps[0].line, 1);
+        assert_eq!(deps[0].character, text.lines().nth(1).unwrap().encode_utf16().count());
     }
 }

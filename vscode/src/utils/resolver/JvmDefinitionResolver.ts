@@ -11,7 +11,6 @@ import * as vscode from "vscode";
  *      或 `.gradle/caches/modules-2/files-2.1/` 作为锚点即可。
  */
 export class JvmDefinitionResolver {
-
   static async resolveJarPath(
     documentUri: vscode.Uri,
     position: vscode.Position,

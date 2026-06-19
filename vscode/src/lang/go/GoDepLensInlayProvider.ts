@@ -1,15 +1,14 @@
 import * as vscode from "vscode";
+import { Logger } from "../../utils/Logger";
+import { GithubInlayUtils } from "../../utils/inlay/GithubInlayUtils";
+import { GoDependencyParser } from "../../utils/parser/GoDependencyParser";
 import { GithubRepoInfoService } from "../../utils/service/GithubRepoInfoService";
 import { BaseDepLensInlayProvider } from "../BaseDepLensInlayProvider";
-import { GithubInlayUtils } from "../../utils/inlay/GithubInlayUtils";
-
-const reGithubImport = /"github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)(?:\/[^"]*)?"/;
-const reGithubMod = /github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)/;
 
 export class GoDepLensInlayProvider extends BaseDepLensInlayProvider {
-
-  constructor() {
+  constructor(private readonly context: vscode.ExtensionContext) {
     super();
+
     GithubRepoInfoService.getInstance().onDidUpdateRepoInfo(() => {
       this.emitter.fire();
     });
@@ -25,32 +24,24 @@ export class GoDepLensInlayProvider extends BaseDepLensInlayProvider {
     token: vscode.CancellationToken,
   ): Promise<vscode.InlayHint[]> {
     const hints: vscode.InlayHint[] = [];
-    const start = range.start.line;
-    const end = range.end.line;
-    const isGoMod = document.fileName.endsWith("go.mod");
-
-    for (let line = start; line <= end; line++) {
-      const text = document.lineAt(line).text;
-
-      if (isGoMod && text.includes("// indirect")) {
-        continue;
+    try {
+      const dependencies = await GoDependencyParser.parse(this.context, document, range);
+      if (token.isCancellationRequested) {
+        return [];
       }
 
-      const m = text.match(isGoMod ? reGithubMod : reGithubImport);
-      if (!m) continue;
-      const owner = m[1];
-      const repo = m[2];
-
-      const endIdx = isGoMod ? text.length : text.lastIndexOf('"');
-      if (endIdx < 0) continue;
-      const pos = new vscode.Position(line, endIdx + (isGoMod ? 0 : 1));
-
-      GithubInlayUtils.addRepoInlay(
-        hints,
-        pos,
-        { owner, repo }
-      );
+      for (const dependency of dependencies) {
+        GithubInlayUtils.addRepoInlay(
+          hints,
+          new vscode.Position(dependency.line, dependency.character),
+          { owner: dependency.owner, repo: dependency.repo },
+        );
+      }
+    } catch (error) {
+      Logger.getInstance().error(`Failed to provide Go dependency inlay hints: ${String(error)}`);
+      return [];
     }
+
     return hints;
   }
 }

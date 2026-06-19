@@ -2,9 +2,9 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fetch } from "undici";
 import * as vscode from "vscode";
-import { Logger } from "../Logger";
-import { AbstractCachedRequestService, CachedEntry } from "./AbstractCachedRequestService";
 import { Result, type ResultWrapper } from "../../common/Result";
+import { Logger } from "../Logger";
+import { AbstractCachedRequestService, type CachedEntry } from "./AbstractCachedRequestService";
 
 export interface NpmPackageInfo extends CachedEntry {
   name: string;
@@ -36,7 +36,7 @@ export class NpmPkgInfoService extends AbstractCachedRequestService<NpmPackageIn
   private constructor() {
     super(
       "deplens/npm_package_cache.json",
-      null // No serializer for now
+      null, // No serializer for now
     );
   }
 
@@ -108,7 +108,7 @@ export class NpmPkgInfoService extends AbstractCachedRequestService<NpmPackageIn
           obj[key] = result.data;
         }
       }
-      
+
       await fs.writeFile(cacheFile, JSON.stringify(obj));
     } catch (e) {
       this.logger.warn(`Failed to save npm cache: ${e}`);
@@ -142,8 +142,8 @@ export class NpmPkgInfoService extends AbstractCachedRequestService<NpmPackageIn
   async createRequestCall(key: string): Promise<Response> {
     return fetch(`https://registry.npmjs.org/${key}`, {
       headers: {
-        "Accept": "application/json"
-      }
+        Accept: "application/json",
+      },
     });
   }
 
@@ -153,34 +153,38 @@ export class NpmPkgInfoService extends AbstractCachedRequestService<NpmPackageIn
 
   private async parseResponseBodyAsync(key: string, body: string): Promise<NpmPackageInfo | null> {
     try {
-        const registryInfo = JSON.parse(body) as NpmRegistryResponse;
-      
+      const registryInfo = JSON.parse(body) as NpmRegistryResponse;
+
       // Fetch download stats in parallel
-      const downloadsResponse = await fetch(`https://api.npmjs.org/downloads/point/last-week/${key}`);
+      const downloadsResponse = await fetch(
+        `https://api.npmjs.org/downloads/point/last-week/${key}`,
+      );
       if (!downloadsResponse.ok) {
         return null;
       }
-      
+
       const downloadsBody = await downloadsResponse.text();
       const downloadsInfo = JSON.parse(downloadsBody) as NpmDownloadsResponse;
 
       let githubUrl: string | undefined;
       if (registryInfo.repository?.url) {
         githubUrl = registryInfo.repository.url
-          .replace(/^git\+/, '')
-          .replace(/\.git$/, '')
-          .replace(/^git:/, 'https:')
-          .replace(/^ssh:\/\/git@github\.com:/, 'https://github.com/');
+          .replace(/^git\+/, "")
+          .replace(/\.git$/, "")
+          .replace(/^git:/, "https:")
+          .replace(/^ssh:\/\/git@github\.com:/, "https://github.com/");
       }
 
       const packageInfo: NpmPackageInfo = {
         name: registryInfo.name,
         weeklyDownloads: downloadsInfo.downloads,
         githubUrl,
-        fetchedAt: Date.now()
+        fetchedAt: Date.now(),
       };
 
-      this.logger.info(`[Request Success] ${key}, downloads: ${packageInfo.weeklyDownloads}, github: ${packageInfo.githubUrl}`);
+      this.logger.info(
+        `[Request Success] ${key}, downloads: ${packageInfo.weeklyDownloads}, github: ${packageInfo.githubUrl}`,
+      );
       return packageInfo;
     } catch (error) {
       this.logger.warn(`[Request Failed] ${key}: ${error}`);

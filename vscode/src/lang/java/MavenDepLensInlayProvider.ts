@@ -1,8 +1,8 @@
-import * as vscode from "vscode";
-import { GithubRepoInfoService } from "../../utils/service/GithubRepoInfoService";
-import { BaseDepLensInlayProvider } from "../BaseDepLensInlayProvider";
+import type * as vscode from "vscode";
 import { GithubInlayUtils } from "../../utils/inlay/GithubInlayUtils";
 import { MavenRepoResolver } from "../../utils/resolver/MavenRepoResolver";
+import { GithubRepoInfoService } from "../../utils/service/GithubRepoInfoService";
+import { BaseDepLensInlayProvider } from "../BaseDepLensInlayProvider";
 
 const DEPENDENCY_REGEX =
   /<dependency>[\s\S]*?<groupId>([^<]+)<\/groupId>[\s\S]*?<artifactId>([^<]+)<\/artifactId>(?:[\s\S]*?<version>([^<]+)<\/version>)?[\s\S]*?<\/dependency>/g;
@@ -44,7 +44,11 @@ export class MavenDepLensInlayProvider extends BaseDepLensInlayProvider {
         continue;
       }
 
-      const repoKey = await MavenRepoResolver.repoKeyFromGroupArtifact(match[1], match[2], match[3]);
+      const repoKey = await MavenRepoResolver.repoKeyFromGroupArtifact(
+        match[1],
+        match[2],
+        match[3],
+      );
       if (!repoKey) {
         continue;
       }

@@ -3,7 +3,7 @@ import * as path from "node:path";
 import { fetch } from "undici";
 import * as vscode from "vscode";
 import { RETRY_DELAY_MILLIS } from "../../common/Const";
-import { Result, ResultWrapper } from "../../common/Result";
+import { Result, type ResultWrapper } from "../../common/Result";
 import { Formatter } from "../Formatter";
 import { Logger } from "../Logger";
 
@@ -41,8 +41,7 @@ export class GithubRepoInfoService {
     const storagePath = context.globalStorageUri.fsPath;
     try {
       await fs.mkdir(storagePath, { recursive: true });
-    } catch {
-    }
+    } catch {}
     this.cacheFile = path.join(storagePath, "github_repo_cache.json");
     await this.loadCacheFromDisk();
   }
@@ -178,7 +177,9 @@ export class GithubRepoInfoService {
         fetchedAt: Date.now(),
       };
 
-      this.logger.info(`[Success] ${key}, stars: ${repoInfo.stars}, updated: ${repoInfo.updatedDate}`);
+      this.logger.info(
+        `[Success] ${key}, stars: ${repoInfo.stars}, updated: ${repoInfo.updatedDate}`,
+      );
 
       this.cache.set(key, repoInfo);
       this.saveCacheToDiskAsync();

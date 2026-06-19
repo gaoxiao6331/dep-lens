@@ -14,9 +14,7 @@
   "engines": {
     "vscode": "^1.86.0"
   },
-  "categories": [
-    "Other"
-  ],
+  "categories": ["Other"],
   "activationEvents": [
     "onLanguage:go",
     "onLanguage:java",
@@ -39,12 +37,7 @@
         },
         "depLens.logLevel": {
           "type": "string",
-          "enum": [
-            "debug",
-            "info",
-            "warn",
-            "error"
-          ],
+          "enum": ["debug", "info", "warn", "error"],
           "default": "info",
           "description": "Log level for Dep Lens"
         }
@@ -63,60 +56,44 @@
     "languages": [
       {
         "id": "go",
-        "aliases": [
-          "Go",
-          "golang"
-        ]
+        "aliases": ["Go", "golang"]
       },
       {
         "id": "java",
-        "aliases": [
-          "Java"
-        ]
+        "aliases": ["Java"]
       },
       {
         "id": "kotlin",
-        "aliases": [
-          "Kotlin"
-        ]
+        "aliases": ["Kotlin"]
       },
       {
         "id": "javascript",
-        "aliases": [
-          "JavaScript"
-        ]
+        "aliases": ["JavaScript"]
       },
       {
         "id": "typescript",
-        "aliases": [
-          "TypeScript"
-        ]
+        "aliases": ["TypeScript"]
       },
       {
         "id": "groovy",
-        "aliases": [
-          "Groovy"
-        ]
+        "aliases": ["Groovy"]
       },
       {
         "id": "json",
-        "aliases": [
-          "JSON"
-        ]
+        "aliases": ["JSON"]
       },
       {
         "id": "xml",
-        "aliases": [
-          "XML"
-        ]
+        "aliases": ["XML"]
       }
     ]
   },
   "scripts": {
-    "build": "tsup src/extension.ts --format cjs --dts --out-dir dist --external vscode",
+    "build": "pnpm build:wasm && tsup src/extension.ts --format cjs --dts --out-dir dist --external vscode",
+    "build:wasm": "cargo build --manifest-path ../lib/Cargo.toml --target wasm32-unknown-unknown --release && mkdir -p lib && cp ../lib/target/wasm32-unknown-unknown/release/dep_lens_lib.wasm lib/dep_lens_lib.wasm",
     "watch": "tsup src/extension.ts --format cjs --dts --out-dir dist --watch --external vscode",
     "typecheck": "tsc --noEmit",
-    "prepack": "tsup src/extension.ts --format cjs --dts --out-dir dist --external vscode && cp -r ../README.md ../LICENSE ../docs ../config .",
+    "prepack": "pnpm build && cp -r ../README.md ../LICENSE ../docs ../config .",
     "package": "vsce package",
     "publish": "vsce publish",
     "check": "biome check --fix ."
@@ -132,11 +109,5 @@
     "undici": "^5.29.0"
   },
   "dependencies": {},
-  "files": [
-    "dist",
-    "config",
-    "docs",
-    "README.md",
-    "LICENSE"
-  ]
+  "files": ["dist", "lib", "config", "docs", "README.md", "LICENSE"]
 }

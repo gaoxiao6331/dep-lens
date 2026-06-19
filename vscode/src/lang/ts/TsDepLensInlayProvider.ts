@@ -1,12 +1,11 @@
 import * as vscode from "vscode";
-import { BaseDepLensInlayProvider } from "../BaseDepLensInlayProvider";
-import { TsImportResolver } from "../../utils/resolver/TsImportResolver";
 import { NpmInlayUtils } from "../../utils/inlay/NpmInlayUtils";
-import { NpmPkgInfoService } from "../../utils/service/NpmPkgInfoService";
+import { TsImportResolver } from "../../utils/resolver/TsImportResolver";
 import { GithubRepoInfoService } from "../../utils/service/GithubRepoInfoService";
+import { NpmPkgInfoService } from "../../utils/service/NpmPkgInfoService";
+import { BaseDepLensInlayProvider } from "../BaseDepLensInlayProvider";
 
 export class TsDepLensInlayProvider extends BaseDepLensInlayProvider {
-
   constructor() {
     super();
     NpmPkgInfoService.getInstance().onDidUpdatePackageInfo(() => {
@@ -18,14 +17,13 @@ export class TsDepLensInlayProvider extends BaseDepLensInlayProvider {
   }
 
   protected isFileSupported(document: vscode.TextDocument): boolean {
-    return document.languageId === "javascript" || 
-           document.languageId === "typescript";
+    return document.languageId === "javascript" || document.languageId === "typescript";
   }
 
   protected async provideInlayHintsForDocument(
     document: vscode.TextDocument,
     range: vscode.Range,
-    token: vscode.CancellationToken
+    token: vscode.CancellationToken,
   ): Promise<vscode.InlayHint[]> {
     const hints: vscode.InlayHint[] = [];
     const start = range.start.line;
@@ -33,7 +31,7 @@ export class TsDepLensInlayProvider extends BaseDepLensInlayProvider {
 
     for (let line = start; line <= end; line++) {
       const text = document.lineAt(line).text;
-      
+
       if (!TsImportResolver.isImport(text)) {
         continue;
       }
@@ -45,11 +43,7 @@ export class TsDepLensInlayProvider extends BaseDepLensInlayProvider {
 
       const pkg = TsImportResolver.getPkgName(dep);
       const position = new vscode.Position(line, text.length);
-       NpmInlayUtils.addNpmDepInlay(
-         hints,
-         pkg,
-         position
-       );
+      NpmInlayUtils.addNpmDepInlay(hints, pkg, position);
     }
 
     return hints;

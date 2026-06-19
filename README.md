@@ -23,7 +23,7 @@ Thus reducing the risk of using unreliable dependencies.
 
 Currently implemented:
 
-* Analyze **Go modules** in **JetBrains IDE**
+* Analyze **Go modules** in **JetBrains IDEs**, **VS Code**, and **Zed**
 
 * Automatically resolve the GitHub repository corresponding to dependencies
 
@@ -47,9 +47,9 @@ Example:
 
 DepLens plans to gradually expand to more languages and IDEs.
 
-| Language | JetBrains IDEs | VS Code    |
-| -------- |----------------| ---------- |
-| Go       | ✅ Supported    | ✅ Supported|
-| JS/TS    | ✅ Supported    | ✅ Supported  |
-| Java     | ✅ Supported    | ✅ Supported  |
-| Kotlin   | ✅ Supported   | ✅ Supported  |
+| Language | JetBrains IDEs | VS Code     | Zed          |
+| -------- |----------------|-------------|--------------|
+| Go       | ✅ Supported    | ✅ Supported | ✅ Supported |
+| JS/TS    | ✅ Supported    | ✅ Supported | Planned      |
+| Java     | ✅ Supported    | ✅ Supported | Planned      |
+| Kotlin   | ✅ Supported    | ✅ Supported | Planned      |
